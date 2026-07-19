@@ -1,0 +1,605 @@
+import { useEffect, useState } from "react";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import dayjs, { type Dayjs } from "dayjs";
+import {
+  Alert,
+  Autocomplete,
+  Button,
+  Checkbox,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControlLabel,
+  Grid,
+  MenuItem,
+  Stack,
+  TextField,
+  Typography,
+  useMediaQuery,
+} from "@mui/material";
+import { useTheme } from "@mui/material/styles";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { TimePicker } from "@mui/x-date-pickers/TimePicker";
+import type { Lead } from "../../api/leadsApi";
+import type {
+  CreateVisitPayload,
+  UpdateVisitPayload,
+  Visit,
+  VisitType,
+} from "../../api/visitsApi";
+import { VISIT_TYPES, useCreateVisit, useUpdateVisit } from "../../api/visitsApi";
+import { useMasterData } from "../../api/masterDataApi";
+import { parseApiError } from "../../api/errorHelpers";
+import { CreatableMasterAutocomplete } from "../../components/CreatableMasterAutocomplete";
+
+const VISIT_TYPE_LABELS: Record<VisitType, string> = {
+  FIELD: "Field Visit",
+  TELEPHONIC: "Telephonic Visit",
+};
+
+const schema = z.object({
+  visitType: z.enum(["FIELD", "TELEPHONIC"]),
+  visitDate: z
+    .custom<Dayjs | null>()
+    .refine((v) => v != null && v.isValid(), "Visit date is required"),
+  scheduledTime: z.custom<Dayjs | null>(),
+  purposeId: z.string().nullable(),
+  purposeOther: z.string().nullable(),
+  contactPerson: z.string(),
+  designationId: z.string().nullable(),
+  designationOther: z.string().nullable(),
+  contactNo: z.string(),
+  email: z.string(),
+  stateId: z.string().nullable(),
+  stateOther: z.string().nullable(),
+  cityId: z.string().nullable(),
+  cityOther: z.string().nullable(),
+  address: z.string(),
+  budgetRange: z.string(),
+  interestLevelId: z.string().nullable(),
+  interestLevelOther: z.string().nullable(),
+  productIds: z.array(z.string()),
+  productsOther: z.string(),
+  requirements: z.string(),
+  objections: z.string(),
+  remarks: z.string(),
+  decisionMakerIdentified: z.boolean(),
+  nextVisitDate: z.custom<Dayjs | null>(),
+  alreadyCompleted: z.boolean(),
+});
+type FormValues = z.infer<typeof schema>;
+
+const blankValues: FormValues = {
+  visitType: "FIELD",
+  visitDate: dayjs(),
+  scheduledTime: null,
+  purposeId: null,
+  purposeOther: null,
+  contactPerson: "",
+  designationId: null,
+  designationOther: null,
+  contactNo: "",
+  email: "",
+  stateId: null,
+  stateOther: null,
+  cityId: null,
+  cityOther: null,
+  address: "",
+  budgetRange: "",
+  interestLevelId: null,
+  interestLevelOther: null,
+  productIds: [],
+  productsOther: "",
+  requirements: "",
+  objections: "",
+  remarks: "",
+  decisionMakerIdentified: false,
+  nextVisitDate: null,
+  alreadyCompleted: true,
+};
+
+interface VisitFormDialogProps {
+  open: boolean;
+  onClose: () => void;
+  leadId: string;
+  lead: Lead;
+  /** When provided, the dialog edits this visit instead of creating a new one. */
+  visit?: Visit | null;
+}
+
+/**
+ * Shared create/edit dialog for Visits. In create mode, contact-detail fields
+ * default from the parent Lead's current values (editable here without
+ * affecting the Lead); in edit mode they default from the visit's own stored
+ * values, since those may already have been customized on a prior visit.
+ */
+export function VisitFormDialog({
+  open,
+  onClose,
+  leadId,
+  lead,
+  visit,
+}: VisitFormDialogProps) {
+  const isEditMode = !!visit;
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const createMutation = useCreateVisit();
+  const updateMutation = useUpdateVisit();
+  const isSubmitting = createMutation.isPending || updateMutation.isPending;
+
+  const { data: purposes } = useMasterData("VISIT_PURPOSE");
+  const { data: designations } = useMasterData("DESIGNATION");
+  const { data: states } = useMasterData("STATE");
+  const { data: cities } = useMasterData("CITY");
+  const { data: interestLevels } = useMasterData("INTEREST_LEVEL");
+  const { data: products } = useMasterData("PRODUCT");
+
+  const form = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: blankValues,
+  });
+
+  useEffect(() => {
+    if (!open) return;
+    setFormError(null);
+
+    if (visit) {
+      form.reset({
+        visitType: visit.visitType,
+        visitDate: dayjs(visit.visitDate),
+        scheduledTime: visit.scheduledTime
+          ? dayjs(visit.scheduledTime, ["HH:mm:ss", "HH:mm"])
+          : null,
+        purposeId: visit.purposeId,
+        purposeOther: visit.purposeOther,
+        contactPerson: visit.contactPerson ?? "",
+        designationId: visit.designationId,
+        designationOther: visit.designationOther,
+        contactNo: visit.contactNo ?? "",
+        email: visit.email ?? "",
+        stateId: visit.stateId,
+        stateOther: visit.stateOther,
+        cityId: visit.cityId,
+        cityOther: visit.cityOther,
+        address: visit.address ?? "",
+        budgetRange: visit.budgetRange ?? "",
+        interestLevelId: visit.interestLevelId,
+        interestLevelOther: visit.interestLevelOther,
+        productIds: visit.productIds ?? [],
+        productsOther: visit.productsOther ?? "",
+        requirements: visit.requirements ?? "",
+        objections: visit.objections ?? "",
+        remarks: visit.remarks ?? "",
+        decisionMakerIdentified: visit.decisionMakerIdentified ?? false,
+        nextVisitDate: visit.nextVisitDate ? dayjs(visit.nextVisitDate) : null,
+        alreadyCompleted: visit.status === "COMPLETED",
+      });
+    } else {
+      form.reset({
+        ...blankValues,
+        contactPerson: lead.contactPerson ?? "",
+        designationId: lead.designationId,
+        designationOther: lead.designationId ? null : lead.designationOther,
+        contactNo: lead.contactNo ?? "",
+        email: lead.email ?? "",
+        stateId: lead.stateId,
+        stateOther: lead.stateId ? null : lead.stateOther,
+        cityId: lead.cityId,
+        cityOther: lead.cityId ? null : lead.cityOther,
+        address: lead.address ?? "",
+        budgetRange: lead.budgetRange ?? "",
+        interestLevelId: lead.interestLevelId,
+        interestLevelOther: lead.interestLevelId ? null : lead.interestLevelOther,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, visit, lead]);
+
+  const purposeOptions = purposes ?? [];
+  const designationOptions = designations ?? [];
+  const stateOptions = states ?? [];
+  const cityOptions = cities ?? [];
+  const interestLevelOptions = interestLevels ?? [];
+  const productOptions = products ?? [];
+
+  const cityOptionsForState = (stateId: string | null) =>
+    stateId ? cityOptions.filter((c) => c.parentId === stateId) : cityOptions;
+
+  const handleClose = () => {
+    if (isSubmitting) return;
+    onClose();
+  };
+
+  const onSubmit = async (values: FormValues) => {
+    setFormError(null);
+    const shared: UpdateVisitPayload = {
+      visitType: values.visitType,
+      visitDate: values.visitDate ? values.visitDate.format("YYYY-MM-DD") : undefined,
+      scheduledTime: values.scheduledTime
+        ? values.scheduledTime.format("HH:mm:ss")
+        : undefined,
+      purposeId: values.purposeId ?? undefined,
+      purposeOther: values.purposeOther ?? undefined,
+      contactPerson: values.contactPerson.trim() || undefined,
+      designationId: values.designationId ?? undefined,
+      designationOther: values.designationOther ?? undefined,
+      contactNo: values.contactNo.trim() || undefined,
+      email: values.email.trim() || undefined,
+      stateId: values.stateId ?? undefined,
+      stateOther: values.stateOther ?? undefined,
+      cityId: values.cityId ?? undefined,
+      cityOther: values.cityOther ?? undefined,
+      address: values.address.trim() || undefined,
+      budgetRange: values.budgetRange.trim() || undefined,
+      interestLevelId: values.interestLevelId ?? undefined,
+      interestLevelOther: values.interestLevelOther ?? undefined,
+      productIds: values.productIds,
+      productsOther: values.productsOther.trim() || undefined,
+      requirements: values.requirements.trim() || undefined,
+      objections: values.objections.trim() || undefined,
+      remarks: values.remarks.trim() || undefined,
+      decisionMakerIdentified: values.decisionMakerIdentified,
+      nextVisitDate: values.nextVisitDate
+        ? values.nextVisitDate.format("YYYY-MM-DD")
+        : undefined,
+    };
+
+    try {
+      if (isEditMode && visit) {
+        await updateMutation.mutateAsync({ id: visit.id, payload: shared });
+      } else {
+        const payload: CreateVisitPayload = {
+          ...shared,
+          leadId,
+          visitDate: values.visitDate!.format("YYYY-MM-DD"),
+          visitType: values.visitType,
+          status: values.alreadyCompleted ? "COMPLETED" : undefined,
+        };
+        await createMutation.mutateAsync(payload);
+      }
+      onClose();
+    } catch (err) {
+      const parsed = parseApiError(err);
+      setFormError(parsed.message);
+      for (const fieldError of parsed.fieldErrors) {
+        if (fieldError.field in values) {
+          form.setError(fieldError.field as keyof FormValues, {
+            message: fieldError.message,
+          });
+        }
+      }
+    }
+  };
+
+  return (
+    <Dialog open={open} onClose={handleClose} fullWidth maxWidth="md" fullScreen={isMobile}>
+      <DialogTitle>{isEditMode ? "Edit Visit" : "Add Visit"}</DialogTitle>
+      <Stack component="form" onSubmit={form.handleSubmit(onSubmit)} noValidate>
+        <DialogContent>
+          <Stack spacing={2}>
+            {formError && <Alert severity="error">{formError}</Alert>}
+
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <Controller
+                  control={form.control}
+                  name="visitType"
+                  render={({ field }) => (
+                    <TextField
+                      select
+                      label="Visit type"
+                      fullWidth
+                      value={field.value}
+                      onChange={(e) => field.onChange(e.target.value)}
+                    >
+                      {VISIT_TYPES.map((t) => (
+                        <MenuItem key={t} value={t}>
+                          {VISIT_TYPE_LABELS[t]}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  )}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <Controller
+                  control={form.control}
+                  name="visitDate"
+                  render={({ field }) => (
+                    <DatePicker
+                      label="Visit date"
+                      value={field.value}
+                      onChange={(value) => field.onChange(value)}
+                      minDate={dayjs()}
+                      slotProps={{
+                        textField: {
+                          fullWidth: true,
+                          error: !!form.formState.errors.visitDate,
+                          helperText: form.formState.errors.visitDate?.message,
+                        },
+                      }}
+                    />
+                  )}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <Controller
+                  control={form.control}
+                  name="scheduledTime"
+                  render={({ field }) => (
+                    <TimePicker
+                      label="Scheduled time (optional)"
+                      value={field.value}
+                      onChange={(value) => field.onChange(value)}
+                      slotProps={{ textField: { fullWidth: true } }}
+                    />
+                  )}
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <Controller
+                  control={form.control}
+                  name="purposeId"
+                  render={({ field }) => (
+                    <CreatableMasterAutocomplete
+                      label="Purpose"
+                      options={purposeOptions}
+                      idValue={field.value}
+                      otherValue={form.watch("purposeOther")}
+                      onChange={({ id, other }) => {
+                        field.onChange(id);
+                        form.setValue("purposeOther", other);
+                      }}
+                    />
+                  )}
+                />
+              </Grid>
+
+              {!isEditMode && (
+                <Grid size={{ xs: 12, sm: 8 }}>
+                  <Controller
+                    control={form.control}
+                    name="alreadyCompleted"
+                    render={({ field }) => (
+                      <FormControlLabel
+                        sx={{ mt: 1 }}
+                        control={
+                          <Checkbox
+                            checked={field.value}
+                            onChange={(e) => field.onChange(e.target.checked)}
+                          />
+                        }
+                        label="This visit already happened (log as completed)"
+                      />
+                    )}
+                  />
+                </Grid>
+              )}
+            </Grid>
+
+            <Typography variant="subtitle2" sx={{ mt: 1 }}>
+              Contact details
+            </Typography>
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  label="Contact person"
+                  fullWidth
+                  {...form.register("contactPerson")}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <Controller
+                  control={form.control}
+                  name="designationId"
+                  render={({ field }) => (
+                    <CreatableMasterAutocomplete
+                      label="Designation"
+                      options={designationOptions}
+                      idValue={field.value}
+                      otherValue={form.watch("designationOther")}
+                      onChange={({ id, other }) => {
+                        field.onChange(id);
+                        form.setValue("designationOther", other);
+                      }}
+                    />
+                  )}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  label="Contact number"
+                  fullWidth
+                  {...form.register("contactNo")}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField label="Email" fullWidth {...form.register("email")} />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <Controller
+                  control={form.control}
+                  name="stateId"
+                  render={({ field }) => (
+                    <CreatableMasterAutocomplete
+                      label="State"
+                      options={stateOptions}
+                      idValue={field.value}
+                      otherValue={form.watch("stateOther")}
+                      onChange={({ id, other }) => {
+                        field.onChange(id);
+                        form.setValue("stateOther", other);
+                      }}
+                    />
+                  )}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <Controller
+                  control={form.control}
+                  name="cityId"
+                  render={({ field }) => (
+                    <CreatableMasterAutocomplete
+                      label="City"
+                      options={cityOptionsForState(form.watch("stateId"))}
+                      idValue={field.value}
+                      otherValue={form.watch("cityOther")}
+                      onChange={({ id, other }) => {
+                        field.onChange(id);
+                        form.setValue("cityOther", other);
+                        if (id) {
+                          const matchedCity = cityOptions.find((c) => c.id === id);
+                          form.setValue("stateId", matchedCity?.parentId ?? null);
+                          form.setValue("stateOther", null);
+                        }
+                      }}
+                    />
+                  )}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  label="Budget range"
+                  fullWidth
+                  {...form.register("budgetRange")}
+                />
+              </Grid>
+              <Grid size={12}>
+                <TextField
+                  label="Address"
+                  fullWidth
+                  multiline
+                  minRows={2}
+                  {...form.register("address")}
+                />
+              </Grid>
+              <Grid size={12}>
+                <Controller
+                  control={form.control}
+                  name="interestLevelId"
+                  render={({ field }) => (
+                    <CreatableMasterAutocomplete
+                      label="Interest level"
+                      options={interestLevelOptions}
+                      idValue={field.value}
+                      otherValue={form.watch("interestLevelOther")}
+                      onChange={({ id, other }) => {
+                        field.onChange(id);
+                        form.setValue("interestLevelOther", other);
+                      }}
+                    />
+                  )}
+                />
+              </Grid>
+            </Grid>
+
+            <Typography variant="subtitle2" sx={{ mt: 1 }}>
+              Visit details
+            </Typography>
+            <Grid container spacing={2}>
+              <Grid size={12}>
+                <Controller
+                  control={form.control}
+                  name="productIds"
+                  render={({ field }) => (
+                    <Autocomplete
+                      multiple
+                      options={productOptions}
+                      getOptionLabel={(option) => option.label}
+                      isOptionEqualToValue={(option, value) => option.id === value.id}
+                      value={productOptions.filter((p) => (field.value ?? []).includes(p.id))}
+                      onChange={(_, selected) => field.onChange(selected.map((s) => s.id))}
+                      renderInput={(params) => (
+                        <TextField {...params} label="Products discussed" />
+                      )}
+                    />
+                  )}
+                />
+              </Grid>
+              <Grid size={12}>
+                <TextField
+                  label="Other products (not in the list above)"
+                  fullWidth
+                  {...form.register("productsOther")}
+                />
+              </Grid>
+              <Grid size={12}>
+                <TextField
+                  label="Requirements"
+                  fullWidth
+                  multiline
+                  minRows={2}
+                  {...form.register("requirements")}
+                />
+              </Grid>
+              <Grid size={12}>
+                <TextField
+                  label="Objections"
+                  fullWidth
+                  multiline
+                  minRows={2}
+                  {...form.register("objections")}
+                />
+              </Grid>
+              <Grid size={12}>
+                <TextField
+                  label="Remarks"
+                  fullWidth
+                  multiline
+                  minRows={2}
+                  {...form.register("remarks")}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <Controller
+                  control={form.control}
+                  name="decisionMakerIdentified"
+                  render={({ field }) => (
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={field.value}
+                          onChange={(e) => field.onChange(e.target.checked)}
+                        />
+                      }
+                      label="Decision maker identified"
+                    />
+                  )}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <Controller
+                  control={form.control}
+                  name="nextVisitDate"
+                  render={({ field }) => (
+                    <DatePicker
+                      label="Next visit date (optional)"
+                      value={field.value}
+                      onChange={(value) => field.onChange(value)}
+                      minDate={dayjs()}
+                      slotProps={{ textField: { fullWidth: true } }}
+                    />
+                  )}
+                />
+              </Grid>
+            </Grid>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleClose} disabled={isSubmitting}>
+            Cancel
+          </Button>
+          <Button type="submit" variant="contained" disabled={isSubmitting}>
+            {isSubmitting ? "Saving..." : isEditMode ? "Save changes" : "Create"}
+          </Button>
+        </DialogActions>
+      </Stack>
+    </Dialog>
+  );
+}
