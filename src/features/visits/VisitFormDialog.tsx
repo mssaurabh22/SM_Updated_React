@@ -28,9 +28,15 @@ import type {
   CreateVisitPayload,
   UpdateVisitPayload,
   Visit,
+  VisitSameDayMatch,
   VisitType,
 } from "../../api/visitsApi";
-import { VISIT_TYPES, useCreateVisit, useUpdateVisit } from "../../api/visitsApi";
+import {
+  VISIT_TYPES,
+  useCheckVisitSameDay,
+  useCreateVisit,
+  useUpdateVisit,
+} from "../../api/visitsApi";
 import { useMasterData } from "../../api/masterDataApi";
 import { parseApiError } from "../../api/errorHelpers";
 import { CreatableMasterAutocomplete } from "../../components/CreatableMasterAutocomplete";
@@ -127,10 +133,29 @@ export function VisitFormDialog({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [formError, setFormError] = useState<string | null>(null);
+  const [sameDayMatches, setSameDayMatches] = useState<VisitSameDayMatch[]>([]);
 
   const createMutation = useCreateVisit();
   const updateMutation = useUpdateVisit();
+  const sameDayCheck = useCheckVisitSameDay();
   const isSubmitting = createMutation.isPending || updateMutation.isPending;
+
+  // Advisory only, and only meaningful in create mode - editing an existing
+  // visit would otherwise just "match" itself. Multiple visits per lead per
+  // day are a legitimate, supported scenario (see the CRM plan) - this is a
+  // heads-up, never a block.
+  const runSameDayCheck = async (visitDate: Dayjs | null) => {
+    if (isEditMode || !visitDate || !visitDate.isValid()) return;
+    try {
+      const matches = await sameDayCheck.mutateAsync({
+        leadId,
+        visitDate: visitDate.format("YYYY-MM-DD"),
+      });
+      setSameDayMatches(matches);
+    } catch {
+      // Informational only: don't block the user from continuing if the check itself fails.
+    }
+  };
 
   const { data: purposes } = useMasterData("VISIT_PURPOSE");
   const { data: designations } = useMasterData("DESIGNATION");
@@ -147,6 +172,7 @@ export function VisitFormDialog({
   useEffect(() => {
     if (!open) return;
     setFormError(null);
+    setSameDayMatches([]);
 
     if (visit) {
       form.reset({
@@ -196,6 +222,7 @@ export function VisitFormDialog({
         interestLevelId: lead.interestLevelId,
         interestLevelOther: lead.interestLevelId ? null : lead.interestLevelOther,
       });
+      void runSameDayCheck(dayjs());
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, visit, lead]);
@@ -283,6 +310,21 @@ export function VisitFormDialog({
         <DialogContent>
           <Stack spacing={2}>
             {formError && <Alert severity="error">{formError}</Alert>}
+            {sameDayMatches.length > 0 && (
+              <Alert severity="warning" onClose={() => setSameDayMatches([])}>
+                <Typography variant="body2" sx={{ mb: 0.5 }}>
+                  This lead already has {sameDayMatches.length === 1 ? "a visit" : "visits"} on
+                  this date - you can still add another if that's intentional:
+                </Typography>
+                <Stack spacing={0.5}>
+                  {sameDayMatches.map((match) => (
+                    <Typography key={match.id} variant="body2" color="text.secondary">
+                      {VISIT_TYPE_LABELS[match.visitType]} - {match.status}
+                    </Typography>
+                  ))}
+                </Stack>
+              </Alert>
+            )}
 
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, sm: 4 }}>
@@ -314,7 +356,10 @@ export function VisitFormDialog({
                     <DatePicker
                       label="Visit date"
                       value={field.value}
-                      onChange={(value) => field.onChange(value)}
+                      onChange={(value) => {
+                        field.onChange(value);
+                        void runSameDayCheck(value);
+                      }}
                       minDate={dayjs()}
                       slotProps={{
                         textField: {

@@ -113,6 +113,12 @@ export interface LeadPayloadFields {
    * entered secondhand (e.g. from a web form) with no direct contact yet.
    */
   logAsVisitToday?: boolean;
+  /**
+   * Only meaningful when logAsVisitToday is true - which kind of touchpoint
+   * the auto-created stub visit represents. Defaults to "FIELD" server-side
+   * when omitted.
+   */
+  visitType?: "FIELD" | "TELEPHONIC";
 }
 
 /**

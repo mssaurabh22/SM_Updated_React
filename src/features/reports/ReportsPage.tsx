@@ -121,7 +121,10 @@ function PipelineSummarySection() {
                   cx="50%"
                   cy="50%"
                   outerRadius={100}
-                  label={({ name, value }) => `${name}: ${value}`}
+                  // Zero-value slices have no arc, so their label anchors collapse to the
+                  // same point and overlap illegibly - only label slices that actually
+                  // render (the Legend below still lists every status regardless).
+                  label={({ name, value }) => (value > 0 ? `${name}: ${value}` : "")}
                 >
                   {LEAD_STATUSES.map((status) => (
                     <Cell key={status} fill={statusColors[status]} />

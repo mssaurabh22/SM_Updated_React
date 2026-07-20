@@ -14,6 +14,7 @@ import {
   FormControlLabel,
   FormHelperText,
   Link as MuiLink,
+  MenuItem,
   Stack,
   TextField,
   Typography,
@@ -42,6 +43,7 @@ const schema = z
     industryId: z.string().nullable(),
     industryOther: z.string().nullable(),
     logAsVisitToday: z.boolean(),
+    visitType: z.enum(["FIELD", "TELEPHONIC"]),
   })
   .refine((data) => !!(data.cityId || data.cityOther), {
     message: "City is required",
@@ -70,6 +72,7 @@ const emptyValues: FormValues = {
   industryId: null,
   industryOther: null,
   logAsVisitToday: true,
+  visitType: "FIELD",
 };
 
 interface LeadCreateDialogProps {
@@ -148,6 +151,7 @@ export function LeadCreateDialog({ open, onClose }: LeadCreateDialogProps) {
         industryId: values.industryId ?? undefined,
         industryOther: values.industryOther ?? undefined,
         logAsVisitToday: values.logAsVisitToday,
+        visitType: values.logAsVisitToday ? values.visitType : undefined,
       });
       onClose();
       navigate(`/app/leads/${lead.id}`);
@@ -324,6 +328,24 @@ export function LeadCreateDialog({ open, onClose }: LeadCreateDialogProps) {
                 </Stack>
               )}
             />
+            {form.watch("logAsVisitToday") && (
+              <Controller
+                control={form.control}
+                name="visitType"
+                render={({ field }) => (
+                  <TextField
+                    select
+                    label="Visit type"
+                    value={field.value}
+                    onChange={(e) => field.onChange(e.target.value)}
+                    sx={{ maxWidth: 240 }}
+                  >
+                    <MenuItem value="FIELD">Field Visit</MenuItem>
+                    <MenuItem value="TELEPHONIC">Telephonic Visit</MenuItem>
+                  </TextField>
+                )}
+              />
+            )}
           </Stack>
         </DialogContent>
         <DialogActions>

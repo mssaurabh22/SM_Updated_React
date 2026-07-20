@@ -105,6 +105,21 @@ export interface VisitStatusUpdatePayload {
   status: "PLANNED" | "COMPLETED";
 }
 
+/** Lightweight projection from GET /visits/same-day - just enough for an advisory warning. */
+export interface VisitSameDayMatch {
+  id: string;
+  visitDate: string;
+  status: VisitStatus;
+  visitType: VisitType;
+  purposeId: string | null;
+  purposeOther: string | null;
+}
+
+export interface CheckVisitSameDayParams {
+  leadId: string;
+  visitDate: string;
+}
+
 export async function getVisits(
   params: GetVisitsParams = {},
 ): Promise<PagedResponse<Visit>> {
@@ -121,6 +136,17 @@ export async function getVisit(id: string): Promise<Visit> {
 
 export async function createVisit(payload: CreateVisitPayload): Promise<Visit> {
   const response = await axiosInstance.post<Visit>("/visits", payload);
+  return response.data;
+}
+
+/** Advisory only - never blocks; the caller decides whether to still create the Visit. */
+export async function checkVisitSameDay(
+  params: CheckVisitSameDayParams,
+): Promise<VisitSameDayMatch[]> {
+  const response = await axiosInstance.get<VisitSameDayMatch[]>(
+    "/visits/same-day",
+    { params },
+  );
   return response.data;
 }
 
@@ -177,6 +203,17 @@ export function useTodaysFollowUps() {
     queryKey: ["visits", "today"],
     queryFn: () => getTodaysFollowUps(),
     staleTime: 0,
+  });
+}
+
+/**
+ * Fired imperatively (e.g. on date-blur), same pattern as leadsApi's
+ * useCheckLeadDuplicates - a plain mutation, not a query, since it's a one-off
+ * advisory check rather than cached list data.
+ */
+export function useCheckVisitSameDay() {
+  return useMutation({
+    mutationFn: (params: CheckVisitSameDayParams) => checkVisitSameDay(params),
   });
 }
 
