@@ -1,9 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { axiosInstance } from "./axiosInstance";
 
-/** Feature codes the platform can gate behind a licensed entitlement. Currently
- * just one - extend this list as more gated features are added. */
-export const FEATURE_ENTITLEMENTS = ["EMPLOYEE_LEAVE_MANAGEMENT"] as const;
+/** Feature codes the platform can gate behind a licensed entitlement - extend
+ * this list as more gated features are added. */
+export const FEATURE_ENTITLEMENTS = [
+  "EMPLOYEE_LEAVE_MANAGEMENT",
+  "TEAM_VISIBILITY",
+] as const;
 
 export type FeatureEntitlement = (typeof FEATURE_ENTITLEMENTS)[number];
 

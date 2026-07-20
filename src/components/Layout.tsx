@@ -132,6 +132,7 @@ export function Layout() {
   const { email, role, logout } = useAuth();
   const { hasEntitlement } = useEntitlements();
   const hasLeaveManagement = hasEntitlement("EMPLOYEE_LEAVE_MANAGEMENT");
+  const hasTeamVisibility = hasEntitlement("TEAM_VISIBILITY");
   const navigate = useNavigate();
   const location = useLocation();
   const theme = useTheme();
@@ -228,6 +229,20 @@ export function Layout() {
         </ListItemIcon>
         <ListItemText primary="Activity" />
       </ListItemButton>
+
+      {/* ADMINs already get a "Reports" item in the Administration section below - this is
+          only for a non-admin manager reaching it via TEAM_VISIBILITY (see TeamVisibilityRoute). */}
+      {role !== "ADMIN" && hasTeamVisibility && (
+        <ListItemButton
+          selected={location.pathname.startsWith("/app/reports")}
+          onClick={() => handleNavigate("/app/reports")}
+        >
+          <ListItemIcon>
+            <BarChartIcon />
+          </ListItemIcon>
+          <ListItemText primary="Reports" />
+        </ListItemButton>
+      )}
 
       {hasLeaveManagement && (
         <>

@@ -28,6 +28,7 @@ import { useTheme } from "@mui/material/styles";
 import AddIcon from "@mui/icons-material/Add";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import { useAuth } from "../../auth/AuthContext";
+import { useEntitlements } from "../../entitlement/EntitlementContext";
 import { useEmployees } from "../../api/employeesApi";
 import { useMasterData } from "../../api/masterDataApi";
 import type { Lead, LeadStatus } from "../../api/leadsApi";
@@ -44,6 +45,11 @@ export function LeadListPage() {
   const navigate = useNavigate();
   const { role } = useAuth();
   const isAdmin = role === "ADMIN";
+  const { hasEntitlement } = useEntitlements();
+  // A manager with TEAM_VISIBILITY entitled sees leads beyond their own (see LeadService#list
+  // on the backend) - the owner filter/column is just as meaningful for them as for an ADMIN,
+  // even though the backend still silently ignores an out-of-scope ownerId either way.
+  const canFilterByOwner = isAdmin || hasEntitlement("TEAM_VISIBILITY");
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
@@ -79,7 +85,7 @@ export function LeadListPage() {
     size: PAGE_SIZE,
     status: statusFilter || undefined,
     interestLevelId: interestLevelFilter || undefined,
-    ownerId: isAdmin ? ownerFilter || undefined : undefined,
+    ownerId: canFilterByOwner ? ownerFilter || undefined : undefined,
   });
 
   const interestLevelMap = useMemo(() => {
@@ -122,7 +128,7 @@ export function LeadListPage() {
         size: 1000,
         status: statusFilter || undefined,
         interestLevelId: interestLevelFilter || undefined,
-        ownerId: isAdmin ? ownerFilter || undefined : undefined,
+        ownerId: canFilterByOwner ? ownerFilter || undefined : undefined,
       });
       exportToCsv<Lead>(`leads-${dayjs().format("YYYY-MM-DD")}.csv`, all.content, [
         { label: "Company", value: (l) => l.companyName },
@@ -220,7 +226,7 @@ export function LeadListPage() {
           ))}
         </TextField>
 
-        {isAdmin && (
+        {canFilterByOwner && (
           <TextField
             select
             label="Owner"
@@ -318,7 +324,7 @@ export function LeadListPage() {
                             variant="outlined"
                           />
                         )}
-                        {isAdmin && (
+                        {canFilterByOwner && (
                           <Chip
                             label={ownerMap.get(lead.ownerId) ?? "Unassigned"}
                             size="small"
@@ -345,7 +351,7 @@ export function LeadListPage() {
                     <TableCell>Status</TableCell>
                     <TableCell>Interest Level</TableCell>
                     <TableCell>Next Follow-up</TableCell>
-                    {isAdmin && <TableCell>Owner</TableCell>}
+                    {canFilterByOwner && <TableCell>Owner</TableCell>}
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -380,7 +386,7 @@ export function LeadListPage() {
                         )}
                       </TableCell>
                       <TableCell>{lead.nextFollowupDate ?? "—"}</TableCell>
-                      {isAdmin && (
+                      {canFilterByOwner && (
                         <TableCell>
                           {ownerMap.get(lead.ownerId) ?? lead.ownerId}
                         </TableCell>

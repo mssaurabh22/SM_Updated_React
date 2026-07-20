@@ -25,6 +25,7 @@ import {
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import { useAuth } from "../../auth/AuthContext";
+import { useEntitlements } from "../../entitlement/EntitlementContext";
 import { useEmployees } from "../../api/employeesApi";
 import type { ActivityEntry, ActivityType } from "../../api/activityApi";
 import { ACTIVITY_TYPES, getActivity, useActivity } from "../../api/activityApi";
@@ -41,15 +42,19 @@ import {
 const PAGE_SIZE = 20;
 
 /**
- * Org-wide (Admin) / personal (Employee) activity feed - a paginated read-only
- * log of everything that's happened across leads (creation, status changes,
- * reassignment, visits, lapses). Structurally mirrors LeadListPage: filters up
- * top, a table below, admin-only Owner filter since non-admins are already
- * scoped server-side to their own owned-leads' activity.
+ * Org-wide (Admin) / team (manager with TEAM_VISIBILITY) / personal (Employee) activity feed -
+ * a paginated read-only log of everything that's happened across leads (creation, status
+ * changes, reassignment, visits, lapses). Structurally mirrors LeadListPage: filters up top, a
+ * table below, an Owner filter for whoever can see more than just their own activity (ADMIN
+ * always; an EMPLOYEE only once TEAM_VISIBILITY is entitled - see LeadListPage's
+ * canFilterByOwner for the same reasoning) since anyone else is already scoped server-side to
+ * their own owned-leads' activity.
  */
 export function ActivityPage() {
   const { role } = useAuth();
   const isAdmin = role === "ADMIN";
+  const { hasEntitlement } = useEntitlements();
+  const canFilterByOwner = isAdmin || hasEntitlement("TEAM_VISIBILITY");
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
@@ -60,7 +65,7 @@ export function ActivityPage() {
   const [exportLoading, setExportLoading] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
 
-  // Only admins see/use the owner filter, but employee lookup (for resolving
+  // Only ADMIN/entitled-manager see/use the owner filter, but employee lookup (for resolving
   // actorId -> name) is harmless and cheap to fetch regardless.
   const { data: employeesPage } = useEmployees({ size: 200 });
 
@@ -68,7 +73,7 @@ export function ActivityPage() {
     page,
     size: PAGE_SIZE,
     type: typeFilter || undefined,
-    ownerId: isAdmin ? ownerFilter || undefined : undefined,
+    ownerId: canFilterByOwner ? ownerFilter || undefined : undefined,
   });
 
   const employeeNameById = useMemo(() => {
@@ -97,7 +102,7 @@ export function ActivityPage() {
       const all = await getActivity({
         size: 1000,
         type: typeFilter || undefined,
-        ownerId: isAdmin ? ownerFilter || undefined : undefined,
+        ownerId: canFilterByOwner ? ownerFilter || undefined : undefined,
       });
       exportToCsv<ActivityEntry>(`activity-${dayjs().format("YYYY-MM-DD")}.csv`, all.content, [
         { label: "Type", value: (e) => ACTIVITY_TYPE_LABELS[e.type] },
@@ -146,7 +151,7 @@ export function ActivityPage() {
           ))}
         </TextField>
 
-        {isAdmin && (
+        {canFilterByOwner && (
           <TextField
             select
             label="Owner"

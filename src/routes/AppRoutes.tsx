@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { LoginPage } from "../auth/LoginPage";
 import { ProtectedRoute } from "../auth/ProtectedRoute";
 import { AdminRoute } from "../auth/AdminRoute";
+import { TeamVisibilityRoute } from "../auth/TeamVisibilityRoute";
 import { Layout } from "../components/Layout";
 import { TodaysFollowUpsPage } from "../features/dashboard/TodaysFollowUpsPage";
 import { NotFoundPage } from "../components/NotFoundPage";
@@ -55,8 +56,11 @@ export function AppRoutes() {
             />
             <Route path="masters/:type" element={<MasterDataPage />} />
             <Route path="employees" element={<EmployeeListPage />} />
-            <Route path="reports" element={<ReportsPage />} />
             <Route path="leads/import" element={<LeadImportPage />} />
+          </Route>
+
+          <Route element={<TeamVisibilityRoute />}>
+            <Route path="reports" element={<ReportsPage />} />
           </Route>
 
           <Route element={<RequireEntitlementRoute feature="EMPLOYEE_LEAVE_MANAGEMENT" />}>

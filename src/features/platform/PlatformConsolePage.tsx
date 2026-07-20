@@ -37,9 +37,10 @@ import { parseApiError } from "../../api/errorHelpers";
 import { TableToolbar } from "../../components/TableToolbar";
 import { exportToCsv } from "../../utils/exportToCsv";
 
-/** Simple, human-readable label for the one entitlement code that exists today. */
+/** Simple, human-readable labels for the entitlement codes that exist today. */
 const ENTITLEMENT_LABELS: Record<string, string> = {
   EMPLOYEE_LEAVE_MANAGEMENT: "Employee Leave Management",
+  TEAM_VISIBILITY: "Manager Team Visibility (Leads/Visits/Reports)",
 };
 
 function KeyEntryScreen({ onSubmit, error }: { onSubmit: (key: string) => void; error?: string | null }) {
