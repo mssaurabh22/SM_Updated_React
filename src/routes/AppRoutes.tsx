@@ -13,6 +13,7 @@ import { LeadListPage } from "../features/leads/LeadListPage";
 import { LeadDetailPage } from "../features/leads/LeadDetailPage";
 import { LeadImportPage } from "../features/leads/LeadImportPage";
 import { ActivityPage } from "../features/activity/ActivityPage";
+import { NotificationsPage } from "../features/notifications/NotificationsPage";
 import { ReportsPage } from "../features/reports/ReportsPage";
 import { SettingsPage } from "../features/settings/SettingsPage";
 import { RequireEntitlementRoute } from "../entitlement/RequireEntitlementRoute";
@@ -41,6 +42,7 @@ export function AppRoutes() {
           <Route path="leads/:id" element={<LeadDetailPage />} />
 
           <Route path="activity" element={<ActivityPage />} />
+          <Route path="notifications" element={<NotificationsPage />} />
 
           <Route path="settings" element={<SettingsPage />} />
 

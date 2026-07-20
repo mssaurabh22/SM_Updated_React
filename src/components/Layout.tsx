@@ -43,7 +43,12 @@ import dayjs from "dayjs";
 import { useAuth } from "../auth/AuthContext";
 import { useEntitlements } from "../entitlement/EntitlementContext";
 import type { Notification } from "../api/notificationsApi";
-import { useMarkNotificationRead, useNotifications } from "../api/notificationsApi";
+import {
+  useMarkNotificationRead,
+  useNotifications,
+  useUnreadNotificationCount,
+} from "../api/notificationsApi";
+import { describeNotification, getNotificationTarget } from "../utils/notificationFormat";
 
 const DRAWER_WIDTH = 220;
 
@@ -66,62 +71,6 @@ function NavSectionHeader({ label }: { label: string }) {
   );
 }
 
-interface NotificationPayload {
-  leadId?: string;
-  companyName?: string;
-  visitId?: string;
-  count?: number;
-  leaveRequestId?: string;
-  leaveTypeId?: string;
-  startDate?: string;
-  endDate?: string;
-  [key: string]: unknown;
-}
-
-function parseNotificationPayload(
-  raw: string | null,
-): NotificationPayload | null {
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw) as NotificationPayload;
-  } catch {
-    return null;
-  }
-}
-
-/** Generic per-type message, enriched with details parsed from payload when available. */
-function describeNotification(notification: Notification): string {
-  const payload = parseNotificationPayload(notification.payload);
-  switch (notification.type) {
-    case "LEAD_REASSIGNED":
-      return payload?.companyName
-        ? `You were assigned the lead "${payload.companyName}".`
-        : "You were assigned a lead.";
-    case "VISIT_MISSED":
-      return payload?.companyName
-        ? `A visit for "${payload.companyName}" was missed.`
-        : "A scheduled visit was missed.";
-    case "LEAD_LAPSED":
-      return payload?.companyName
-        ? `Your lead "${payload.companyName}" has lapsed - its follow-up date passed.`
-        : "One of your leads has lapsed.";
-    case "LEAD_LAPSED_DIGEST": {
-      const count = payload?.count;
-      return count
-        ? `${count} of your team's lead${count === 1 ? "" : "s"} lapsed last night - review the pipeline.`
-        : "Some of your team's leads lapsed last night - review the pipeline.";
-    }
-    case "LEAVE_REQUEST_SUBMITTED":
-      return "A leave request was submitted for your approval.";
-    case "LEAVE_REQUEST_APPROVED":
-      return "Your leave request was approved.";
-    case "LEAVE_REQUEST_REJECTED":
-      return "Your leave request was rejected.";
-    default:
-      return "You have a new notification.";
-  }
-}
-
 /**
  * Authenticated app shell: an AppBar (title, logged-in user, logout) plus a simple
  * sidebar with only the one destination that exists so far. New sections
@@ -142,11 +91,15 @@ export function Layout() {
   const notifMenuOpen = Boolean(notifAnchorEl);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
-  const { data: notificationsPage } = useNotifications(false, { size: 20 });
+  // Top 10 in the dropdown - "See all" below links to the full /app/notifications page for
+  // anything beyond that.
+  const { data: notificationsPage } = useNotifications(false, { size: 10 });
   const markReadMutation = useMarkNotificationRead();
+  // The badge's source of truth is a dedicated count endpoint, not "how many unread items
+  // happen to be in the last 10 fetched" - see useUnreadNotificationCount's own comment.
+  const { data: unreadCount = 0 } = useUnreadNotificationCount();
 
   const notifications = notificationsPage?.content ?? [];
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
 
   const handleLogout = async () => {
     await logout();
@@ -180,20 +133,16 @@ export function Layout() {
     if (!notification.isRead) {
       markReadMutation.mutate(notification.id);
     }
-    const payload = parseNotificationPayload(notification.payload);
     handleCloseNotifications();
-    if (payload?.leadId) {
-      navigate(`/app/leads/${payload.leadId}`);
-    } else if (notification.type === "LEAD_LAPSED_DIGEST") {
-      navigate("/app/leads?status=LAPSED");
-    } else if (notification.type === "LEAVE_REQUEST_SUBMITTED") {
-      navigate("/app/leave/approvals");
-    } else if (
-      notification.type === "LEAVE_REQUEST_APPROVED" ||
-      notification.type === "LEAVE_REQUEST_REJECTED"
-    ) {
-      navigate("/app/leave");
+    const target = getNotificationTarget(notification);
+    if (target) {
+      navigate(target);
     }
+  };
+
+  const handleSeeAllNotifications = () => {
+    handleCloseNotifications();
+    navigate("/app/notifications");
   };
 
   const navList = (
@@ -228,6 +177,16 @@ export function Layout() {
           <HistoryIcon />
         </ListItemIcon>
         <ListItemText primary="Activity" />
+      </ListItemButton>
+
+      <ListItemButton
+        selected={location.pathname.startsWith("/app/notifications")}
+        onClick={() => handleNavigate("/app/notifications")}
+      >
+        <ListItemIcon>
+          <NotificationsIcon />
+        </ListItemIcon>
+        <ListItemText primary="Notifications" />
       </ListItemButton>
 
       {/* ADMINs already get a "Reports" item in the Administration section below - this is
@@ -439,11 +398,26 @@ export function Layout() {
                     whiteSpace: "normal",
                     alignItems: "flex-start",
                     py: 1.5,
-                    bgcolor: notification.isRead ? "transparent" : "action.hover",
+                    gap: 1,
+                    bgcolor: notification.isRead ? "transparent" : "action.selected",
                   }}
                 >
+                  {/* Unread dot - a clearer at-a-glance signal than the background tint alone. */}
+                  <Box
+                    sx={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: "50%",
+                      mt: 0.75,
+                      flexShrink: 0,
+                      bgcolor: notification.isRead ? "transparent" : "error.main",
+                    }}
+                  />
                   <Box>
-                    <Typography variant="body2">
+                    <Typography
+                      variant="body2"
+                      sx={{ fontWeight: notification.isRead ? 400 : 700 }}
+                    >
                       {describeNotification(notification)}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
@@ -454,6 +428,12 @@ export function Layout() {
               );
               return items;
             })}
+            <Divider />
+            <MenuItem onClick={handleSeeAllNotifications} sx={{ justifyContent: "center" }}>
+              <Typography variant="body2" color="primary">
+                See all notifications
+              </Typography>
+            </MenuItem>
           </Menu>
           {isMobile ? (
             <IconButton
