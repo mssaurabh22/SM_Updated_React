@@ -41,6 +41,7 @@ import { exportToCsv } from "../../utils/exportToCsv";
 const ENTITLEMENT_LABELS: Record<string, string> = {
   EMPLOYEE_LEAVE_MANAGEMENT: "Employee Leave Management",
   TEAM_VISIBILITY: "Manager Team Visibility (Leads/Visits/Reports)",
+  INVENTORY_MANAGEMENT: "Inventory + Invoicing",
 };
 
 function KeyEntryScreen({ onSubmit, error }: { onSubmit: (key: string) => void; error?: string | null }) {

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type { ChangeEvent, ReactNode } from "react";
 import {
   Alert,
   Box,
@@ -12,7 +12,9 @@ import {
 } from "@mui/material";
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import { useQueryClient } from "@tanstack/react-query";
+import TextField from "@mui/material/TextField";
 import { useAuth } from "../../auth/AuthContext";
+import { useEntitlements } from "../../entitlement/EntitlementContext";
 import { parseApiError } from "../../api/errorHelpers";
 import {
   MY_THEME_PREFERENCE_QUERY_KEY,
@@ -23,6 +25,13 @@ import {
   useUpdateOrganizationTheme,
   type ThemeSettings,
 } from "../../api/themeApi";
+import {
+  getLogoBlobUrl,
+  useBillingProfile,
+  useDeleteLogo,
+  useUpdateBillingProfile,
+  useUploadLogo,
+} from "../../api/billingProfileApi";
 
 type Mode = "LIGHT" | "DARK";
 type Density = "COMFORTABLE" | "COMPACT";
@@ -130,6 +139,238 @@ function SectionCard({
 }
 
 /**
+ * The seller header shown on a generated invoice PDF - a plain explicit-Save form (not the
+ * live-debounced-per-keystroke pattern above), since this is filled in rarely, not dragged/
+ * tweaked live like a color picker. View is open to any entitled user (matching the backend's
+ * GET), editing is ADMIN-only.
+ */
+/** Logo upload accepts PNG/JPEG only, capped at 2MB - mirrors BillingProfileService's
+ * server-side validation exactly (the server is authoritative; this is UX only, same
+ * discipline as every other form in this app). */
+const MAX_LOGO_BYTES = 2 * 1024 * 1024;
+const ALLOWED_LOGO_TYPES = ["image/png", "image/jpeg"];
+
+function LogoUploadRow({ isAdmin, hasLogo }: { isAdmin: boolean; hasLogo: boolean }) {
+  const uploadMutation = useUploadLogo();
+  const deleteMutation = useDeleteLogo();
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    let objectUrl: string | null = null;
+    if (hasLogo) {
+      getLogoBlobUrl().then((url) => {
+        if (!cancelled && url) {
+          objectUrl = url;
+          setPreviewUrl(url);
+        }
+      });
+    } else {
+      setPreviewUrl(null);
+    }
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [hasLogo]);
+
+  const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setError(null);
+    if (!ALLOWED_LOGO_TYPES.includes(file.type)) {
+      setError("Logo must be a PNG or JPEG image");
+      return;
+    }
+    if (file.size > MAX_LOGO_BYTES) {
+      setError("Logo file must be at most 2MB");
+      return;
+    }
+    try {
+      await uploadMutation.mutateAsync(file);
+    } catch (err) {
+      setError(parseApiError(err).message);
+    }
+  };
+
+  const handleDelete = async () => {
+    setError(null);
+    try {
+      await deleteMutation.mutateAsync();
+    } catch (err) {
+      setError(parseApiError(err).message);
+    }
+  };
+
+  if (!isAdmin && !hasLogo) {
+    return null;
+  }
+
+  return (
+    <Stack spacing={1}>
+      <Typography variant="body2">Logo (optional)</Typography>
+      {error && <Alert severity="error">{error}</Alert>}
+      <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
+        {previewUrl && (
+          <Box
+            component="img"
+            src={previewUrl}
+            alt="Organization logo"
+            sx={{ maxHeight: 56, maxWidth: 160, border: "1px solid", borderColor: "divider", borderRadius: 1 }}
+          />
+        )}
+        {isAdmin && (
+          <>
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadMutation.isPending}
+            >
+              {uploadMutation.isPending ? "Uploading..." : hasLogo ? "Replace logo" : "Upload logo"}
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg"
+              hidden
+              onChange={handleFileChange}
+            />
+            {hasLogo && (
+              <Button size="small" color="error" onClick={handleDelete} disabled={deleteMutation.isPending}>
+                Remove
+              </Button>
+            )}
+          </>
+        )}
+      </Stack>
+    </Stack>
+  );
+}
+
+function BillingProfileSection() {
+  const { role } = useAuth();
+  const isAdmin = role === "ADMIN";
+  const profileQuery = useBillingProfile(true);
+  const updateMutation = useUpdateBillingProfile();
+
+  const [billingAddress, setBillingAddress] = useState("");
+  const [billingGstin, setBillingGstin] = useState("");
+  const [billingPhone, setBillingPhone] = useState("");
+  const [invoiceHeaderText, setInvoiceHeaderText] = useState("");
+  const [invoiceFooterText, setInvoiceFooterText] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const loadedRef = useRef(false);
+
+  useEffect(() => {
+    if (profileQuery.data && !loadedRef.current) {
+      loadedRef.current = true;
+      setBillingAddress(profileQuery.data.billingAddress ?? "");
+      setBillingGstin(profileQuery.data.billingGstin ?? "");
+      setBillingPhone(profileQuery.data.billingPhone ?? "");
+      setInvoiceHeaderText(profileQuery.data.invoiceHeaderText ?? "");
+      setInvoiceFooterText(profileQuery.data.invoiceFooterText ?? "");
+    }
+  }, [profileQuery.data]);
+
+  const handleSave = async () => {
+    setError(null);
+    setSaved(false);
+    try {
+      await updateMutation.mutateAsync({
+        billingAddress: billingAddress || undefined,
+        billingGstin: billingGstin || undefined,
+        billingPhone: billingPhone || undefined,
+        invoiceHeaderText: invoiceHeaderText || undefined,
+        invoiceFooterText: invoiceFooterText || undefined,
+      });
+      setSaved(true);
+    } catch (err) {
+      setError(parseApiError(err).message);
+    }
+  };
+
+  return (
+    <SectionCard
+      title="Invoice billing profile"
+      description={
+        isAdmin
+          ? `Shown as the seller header on every generated invoice PDF, alongside "${profileQuery.data?.businessName ?? ""}".`
+          : "Set by your administrator - shown as the seller header on generated invoice PDFs."
+      }
+    >
+      <Stack spacing={2}>
+        {error && <Alert severity="error">{error}</Alert>}
+        {saved && !error && <Alert severity="success">Saved.</Alert>}
+        {profileQuery.isLoading ? (
+          <Typography color="text.secondary">Loading...</Typography>
+        ) : (
+          <>
+            <LogoUploadRow isAdmin={isAdmin} hasLogo={profileQuery.data?.hasLogo ?? false} />
+            <TextField
+              label="Business address"
+              fullWidth
+              multiline
+              minRows={2}
+              disabled={!isAdmin}
+              value={billingAddress}
+              onChange={(e) => setBillingAddress(e.target.value)}
+            />
+            <Stack direction="row" spacing={2}>
+              <TextField
+                label="GSTIN (optional)"
+                fullWidth
+                disabled={!isAdmin}
+                value={billingGstin}
+                onChange={(e) => setBillingGstin(e.target.value)}
+              />
+              <TextField
+                label="Phone"
+                fullWidth
+                disabled={!isAdmin}
+                value={billingPhone}
+                onChange={(e) => setBillingPhone(e.target.value)}
+              />
+            </Stack>
+            <TextField
+              label="Header text (optional)"
+              fullWidth
+              multiline
+              minRows={1}
+              helperText="Shown just below your business details at the top of the PDF, e.g. a tagline or jurisdiction note."
+              disabled={!isAdmin}
+              value={invoiceHeaderText}
+              onChange={(e) => setInvoiceHeaderText(e.target.value)}
+            />
+            <TextField
+              label="Footer text (optional)"
+              fullWidth
+              multiline
+              minRows={2}
+              helperText="Shown at the bottom of the PDF, e.g. bank details, terms, or a thank-you note."
+              disabled={!isAdmin}
+              value={invoiceFooterText}
+              onChange={(e) => setInvoiceFooterText(e.target.value)}
+            />
+            {isAdmin && (
+              <Box>
+                <Button variant="contained" onClick={handleSave} disabled={updateMutation.isPending}>
+                  {updateMutation.isPending ? "Saving..." : "Save"}
+                </Button>
+              </Box>
+            )}
+          </>
+        )}
+      </Stack>
+    </SectionCard>
+  );
+}
+
+/**
  * Settings page (route: /app/settings, open to all authenticated users).
  *
  * Two independent sections, each backed by its own query/mutation pair from
@@ -147,6 +388,8 @@ function SectionCard({
 export function SettingsPage() {
   const { role } = useAuth();
   const isAdmin = role === "ADMIN";
+  const { hasEntitlement } = useEntitlements();
+  const hasInventoryManagement = hasEntitlement("INVENTORY_MANAGEMENT");
   const queryClient = useQueryClient();
 
   const orgQuery = useOrganizationTheme();
@@ -457,6 +700,8 @@ export function SettingsPage() {
           )}
         </Stack>
       </SectionCard>
+
+      {hasInventoryManagement && <BillingProfileSection />}
     </Stack>
   );
 }

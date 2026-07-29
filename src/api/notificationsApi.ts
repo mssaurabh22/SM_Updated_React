@@ -14,6 +14,7 @@ export const NOTIFICATION_TYPES = [
   "LEAVE_REQUEST_SUBMITTED",
   "LEAVE_REQUEST_APPROVED",
   "LEAVE_REQUEST_REJECTED",
+  "LOW_STOCK",
 ] as const;
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];

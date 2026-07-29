@@ -6,6 +6,7 @@ import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import FactCheckIcon from "@mui/icons-material/FactCheck";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
+import Inventory2Icon from "@mui/icons-material/Inventory2";
 import type { Notification, NotificationType } from "../api/notificationsApi";
 
 /**
@@ -21,6 +22,9 @@ export interface NotificationPayload {
   leaveTypeId?: string;
   startDate?: string;
   endDate?: string;
+  productId?: string;
+  productName?: string;
+  stockQuantity?: number;
   [key: string]: unknown;
 }
 
@@ -63,6 +67,10 @@ export function describeNotification(notification: Notification): string {
       return "Your leave request was approved.";
     case "LEAVE_REQUEST_REJECTED":
       return "Your leave request was rejected.";
+    case "LOW_STOCK":
+      return payload?.productName
+        ? `"${payload.productName}" is running low on stock (${payload.stockQuantity ?? "?"} left).`
+        : "A product is running low on stock.";
     default:
       return "You have a new notification.";
   }
@@ -78,6 +86,7 @@ export const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = {
   LEAVE_REQUEST_SUBMITTED: "Leave Request Submitted",
   LEAVE_REQUEST_APPROVED: "Leave Request Approved",
   LEAVE_REQUEST_REJECTED: "Leave Request Rejected",
+  LOW_STOCK: "Low Stock",
 };
 
 /** Icon per notification type, so the full Notifications page reads at a glance without the label. */
@@ -89,6 +98,7 @@ export const NOTIFICATION_TYPE_ICONS: Record<NotificationType, ComponentType<Svg
   LEAVE_REQUEST_SUBMITTED: FactCheckIcon,
   LEAVE_REQUEST_APPROVED: CheckCircleIcon,
   LEAVE_REQUEST_REJECTED: CancelIcon,
+  LOW_STOCK: Inventory2Icon,
 };
 
 /** MUI chip colors per notification type, mirroring activityConfig's approach. */
@@ -103,6 +113,7 @@ export const NOTIFICATION_TYPE_COLORS: Record<
   LEAVE_REQUEST_SUBMITTED: "info",
   LEAVE_REQUEST_APPROVED: "success",
   LEAVE_REQUEST_REJECTED: "error",
+  LOW_STOCK: "warning",
 };
 
 /** Where clicking a notification should navigate to, or null if there's nowhere sensible to go. */
@@ -119,6 +130,9 @@ export function getNotificationTarget(notification: Notification): string | null
   }
   if (notification.type === "LEAVE_REQUEST_APPROVED" || notification.type === "LEAVE_REQUEST_REJECTED") {
     return "/app/leave";
+  }
+  if (notification.type === "LOW_STOCK") {
+    return "/app/inventory/products";
   }
   return null;
 }

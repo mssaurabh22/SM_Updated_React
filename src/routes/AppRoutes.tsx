@@ -26,6 +26,10 @@ import { EmployeeLeaveAttendanceDetailPage } from "../features/leave/EmployeeLea
 import { TeamLeaveCalendarPage } from "../features/leave/TeamLeaveCalendarPage";
 import { HrDashboardPage } from "../features/leave/HrDashboardPage";
 import { PlatformConsolePage } from "../features/platform/PlatformConsolePage";
+import { ProductListPage } from "../features/inventory/ProductListPage";
+import { InvoiceListPage } from "../features/invoicing/InvoiceListPage";
+import { InvoiceFormPage } from "../features/invoicing/InvoiceFormPage";
+import { InvoiceDetailPage } from "../features/invoicing/InvoiceDetailPage";
 
 export function AppRoutes() {
   return (
@@ -79,6 +83,13 @@ export function AppRoutes() {
               <Route path="leave/types" element={<LeaveTypesPage />} />
               <Route path="leave/holidays" element={<HolidaysPage />} />
             </Route>
+          </Route>
+
+          <Route element={<RequireEntitlementRoute feature="INVENTORY_MANAGEMENT" />}>
+            <Route path="inventory/products" element={<ProductListPage />} />
+            <Route path="invoices" element={<InvoiceListPage />} />
+            <Route path="invoices/new" element={<InvoiceFormPage />} />
+            <Route path="invoices/:id" element={<InvoiceDetailPage />} />
           </Route>
         </Route>
       </Route>

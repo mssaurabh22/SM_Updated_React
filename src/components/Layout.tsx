@@ -39,6 +39,8 @@ import EventBusyIcon from "@mui/icons-material/EventBusy";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import CalendarViewMonthIcon from "@mui/icons-material/CalendarViewMonth";
 import SpaceDashboardIcon from "@mui/icons-material/SpaceDashboard";
+import Inventory2Icon from "@mui/icons-material/Inventory2";
+import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import dayjs from "dayjs";
 import { useAuth } from "../auth/AuthContext";
 import { useEntitlements } from "../entitlement/EntitlementContext";
@@ -82,6 +84,7 @@ export function Layout() {
   const { hasEntitlement } = useEntitlements();
   const hasLeaveManagement = hasEntitlement("EMPLOYEE_LEAVE_MANAGEMENT");
   const hasTeamVisibility = hasEntitlement("TEAM_VISIBILITY");
+  const hasInventoryManagement = hasEntitlement("INVENTORY_MANAGEMENT");
   const navigate = useNavigate();
   const location = useLocation();
   const theme = useTheme();
@@ -255,6 +258,32 @@ export function Layout() {
               <SpaceDashboardIcon />
             </ListItemIcon>
             <ListItemText primary="HR Dashboard" />
+          </ListItemButton>
+        </>
+      )}
+
+      {hasInventoryManagement && (
+        <>
+          <NavSectionHeader label="Inventory" />
+
+          <ListItemButton
+            selected={location.pathname.startsWith("/app/inventory/products")}
+            onClick={() => handleNavigate("/app/inventory/products")}
+          >
+            <ListItemIcon>
+              <Inventory2Icon />
+            </ListItemIcon>
+            <ListItemText primary="Products" />
+          </ListItemButton>
+
+          <ListItemButton
+            selected={location.pathname.startsWith("/app/invoices")}
+            onClick={() => handleNavigate("/app/invoices")}
+          >
+            <ListItemIcon>
+              <ReceiptLongIcon />
+            </ListItemIcon>
+            <ListItemText primary="Invoices" />
           </ListItemButton>
         </>
       )}

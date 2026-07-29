@@ -6,6 +6,7 @@ import { axiosInstance } from "./axiosInstance";
 export const FEATURE_ENTITLEMENTS = [
   "EMPLOYEE_LEAVE_MANAGEMENT",
   "TEAM_VISIBILITY",
+  "INVENTORY_MANAGEMENT",
 ] as const;
 
 export type FeatureEntitlement = (typeof FEATURE_ENTITLEMENTS)[number];
