@@ -38,6 +38,8 @@ import { exportToCsv } from "../../utils/exportToCsv";
 import { TableToolbar } from "../../components/TableToolbar";
 import { LEAD_STATUS_COLORS, LEAD_STATUS_LABELS } from "./leadStatusConfig";
 import { LeadCreateDialog } from "./LeadCreateDialog";
+import { AddVisitEntryDialog } from "./AddVisitEntryDialog";
+import { VisitFormDialog } from "../visits/VisitFormDialog";
 
 const PAGE_SIZE = 20;
 
@@ -67,7 +69,9 @@ export function LeadListPage() {
   );
   const [interestLevelFilter, setInterestLevelFilter] = useState("");
   const [ownerFilter, setOwnerFilter] = useState("");
+  const [addVisitEntryOpen, setAddVisitEntryOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [visitDialogLead, setVisitDialogLead] = useState<Lead | null>(null);
   const [search, setSearch] = useState("");
   const [exportLoading, setExportLoading] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
@@ -173,9 +177,9 @@ export function LeadListPage() {
           <Button
             startIcon={<AddIcon />}
             variant="contained"
-            onClick={() => setDialogOpen(true)}
+            onClick={() => setAddVisitEntryOpen(true)}
           >
-            Add Lead
+            Add Visit
           </Button>
         </Stack>
       </Stack>
@@ -410,10 +414,32 @@ export function LeadListPage() {
         </>
       )}
 
+      <AddVisitEntryDialog
+        open={addVisitEntryOpen}
+        onClose={() => setAddVisitEntryOpen(false)}
+        onSelectNewLead={() => {
+          setAddVisitEntryOpen(false);
+          setDialogOpen(true);
+        }}
+        onSelectExistingLead={(lead) => {
+          setAddVisitEntryOpen(false);
+          setVisitDialogLead(lead);
+        }}
+      />
+
       <LeadCreateDialog
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
       />
+
+      {visitDialogLead && (
+        <VisitFormDialog
+          open={!!visitDialogLead}
+          onClose={() => setVisitDialogLead(null)}
+          leadId={visitDialogLead.id}
+          lead={visitDialogLead}
+        />
+      )}
     </Box>
   );
 }

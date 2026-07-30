@@ -5,6 +5,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import dayjs, { type Dayjs } from "dayjs";
 import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Alert,
   Autocomplete,
   Box,
@@ -27,6 +30,7 @@ import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { useAuth } from "../../auth/AuthContext";
 import { useEmployee, useEmployees } from "../../api/employeesApi";
 import { useMasterData } from "../../api/masterDataApi";
@@ -40,7 +44,8 @@ import {
 } from "../../api/leadsApi";
 import type { Visit, VisitStatus } from "../../api/visitsApi";
 import { useUpdateVisitStatus, useVisits } from "../../api/visitsApi";
-import { useActivity } from "../../api/activityApi";
+import type { ActivityType } from "../../api/activityApi";
+import { ACTIVITY_TYPES, useActivity } from "../../api/activityApi";
 import { parseApiError } from "../../api/errorHelpers";
 import { CreatableMasterAutocomplete } from "../../components/CreatableMasterAutocomplete";
 import { LEAD_STATUS_COLORS, LEAD_STATUS_LABELS } from "./leadStatusConfig";
@@ -176,8 +181,9 @@ export function LeadDetailPage() {
   );
   const updateVisitStatusMutation = useUpdateVisitStatus();
 
+  const [activityTypeFilter, setActivityTypeFilter] = useState<ActivityType | "">("");
   const { data: activityPage, isLoading: activityLoading } = useActivity(
-    { leadId: id, size: 100 },
+    { leadId: id, size: 100, type: activityTypeFilter || undefined },
     { enabled: !!id },
   );
   // Actors on a lead's activity can be any employee who touched it (not just
@@ -196,6 +202,7 @@ export function LeadDetailPage() {
   const [visitDialogOpen, setVisitDialogOpen] = useState(false);
   const [editingVisit, setEditingVisit] = useState<Visit | null>(null);
   const [visitStatusError, setVisitStatusError] = useState<string | null>(null);
+  const [optionalExpanded, setOptionalExpanded] = useState(false);
 
   const visitPurposeMap = new Map((visitPurposes ?? []).map((p) => [p.id, p.label]));
 
@@ -480,6 +487,8 @@ export function LeadDetailPage() {
         )}
       </Paper>
 
+      <Grid container spacing={3}>
+      <Grid size={{ xs: 12, md: 7 }}>
       <Paper
         variant="outlined"
         component="form"
@@ -519,15 +528,12 @@ export function LeadDetailPage() {
             <TextField
               label="Contact number"
               fullWidth
+              slotProps={{ htmlInput: { inputMode: "numeric" } }}
               {...form.register("contactNo")}
               error={!!form.formState.errors.contactNo}
               helperText={form.formState.errors.contactNo?.message}
             />
           </Grid>
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <TextField label="Email" fullWidth {...form.register("email")} />
-          </Grid>
-
           <Grid size={{ xs: 12, sm: 4 }}>
             <Controller
               control={form.control}
@@ -605,11 +611,28 @@ export function LeadDetailPage() {
               )}
             />
           </Grid>
+        </Grid>
 
-          <Grid size={{ xs: 12, sm: 4 }}>
-            <Controller
-              control={form.control}
-              name="businessTypeId"
+        <Accordion
+          expanded={optionalExpanded}
+          onChange={(_, expanded) => setOptionalExpanded(expanded)}
+          disableGutters
+          variant="outlined"
+          sx={{ mt: 2, "&:before": { display: "none" } }}
+        >
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography variant="subtitle2">Additional details (optional)</Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <TextField label="Email" fullWidth {...form.register("email")} />
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <Controller
+                  control={form.control}
+                  name="businessTypeId"
               render={({ field }) => (
                 <CreatableMasterAutocomplete
                   label="Business type"
@@ -799,7 +822,9 @@ export function LeadDetailPage() {
               {...form.register("remarks")}
             />
           </Grid>
-        </Grid>
+            </Grid>
+          </AccordionDetails>
+        </Accordion>
 
         <Divider sx={{ my: 3 }} />
 
@@ -910,11 +935,28 @@ export function LeadDetailPage() {
           </Stack>
         )}
       </Paper>
+      </Grid>
 
-      <Paper variant="outlined" sx={{ p: 3, mt: 3 }}>
-        <Typography variant="h6" sx={{ mb: 2 }}>
-          Activity
-        </Typography>
+      <Grid size={{ xs: 12, md: 5 }}>
+      <Paper variant="outlined" sx={{ p: 3 }}>
+        <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mb: 2 }}>
+          <Typography variant="h6">Activity</Typography>
+          <TextField
+            select
+            label="Type"
+            size="small"
+            sx={{ minWidth: 160 }}
+            value={activityTypeFilter}
+            onChange={(e) => setActivityTypeFilter(e.target.value as ActivityType | "")}
+          >
+            <MenuItem value="">All types</MenuItem>
+            {ACTIVITY_TYPES.map((t) => (
+              <MenuItem key={t} value={t}>
+                {ACTIVITY_TYPE_LABELS[t]}
+              </MenuItem>
+            ))}
+          </TextField>
+        </Stack>
 
         {activityLoading && (
           <Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
@@ -988,6 +1030,8 @@ export function LeadDetailPage() {
           </Stack>
         )}
       </Paper>
+      </Grid>
+      </Grid>
 
       <LeadLostReasonDialog
         open={lostDialogOpen}

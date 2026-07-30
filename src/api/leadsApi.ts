@@ -69,6 +69,11 @@ export interface GetLeadsParams {
   status?: LeadStatus;
   ownerId?: string;
   interestLevelId?: string;
+  /** Case-insensitive substring match against company/contact/phone/email, server-side -
+   * unlike LeadListPage's own toolbar search (client-side, over just the loaded page), this
+   * is a real query param so the "find an existing lead to log a visit against" picker can
+   * reliably find a match regardless of how many leads exist. */
+  search?: string;
   page?: number;
   size?: number;
   sort?: string;
@@ -214,11 +219,14 @@ export async function checkLeadDuplicates(
 /**
  * Fetches the caller's visible leads, paginated. Non-admins are silently scoped
  * to their own leads server-side regardless of any ownerId passed here.
+ * `enabled` defaults to true - pass false for a query that shouldn't fire yet (e.g. the
+ * existing-lead search picker, which waits for at least a 2-character search term).
  */
-export function useLeads(params: GetLeadsParams = {}) {
+export function useLeads(params: GetLeadsParams = {}, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ["leads", params],
     queryFn: () => getLeads(params),
+    enabled: options?.enabled ?? true,
   });
 }
 

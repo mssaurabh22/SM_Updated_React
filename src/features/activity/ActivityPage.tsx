@@ -32,6 +32,7 @@ import { ACTIVITY_TYPES, getActivity, useActivity } from "../../api/activityApi"
 import { parseApiError } from "../../api/errorHelpers";
 import { exportToCsv } from "../../utils/exportToCsv";
 import { TableToolbar } from "../../components/TableToolbar";
+import { TypeIconAvatar } from "../../components/TypeIconAvatar";
 import {
   ACTIVITY_TYPE_COLORS,
   ACTIVITY_TYPE_ICONS,
@@ -210,40 +211,45 @@ export function ActivityPage() {
           )}
 
           {isMobile && visibleActivity.length > 0 && (
-            <Stack spacing={1.5}>
-              {visibleActivity.map((entry) => {
+            <Stack spacing={0}>
+              {visibleActivity.map((entry, index) => {
                 const Icon = ACTIVITY_TYPE_ICONS[entry.type];
+                const isLast = index === visibleActivity.length - 1;
                 return (
-                  <Card key={entry.id} variant="outlined">
-                    <CardContent>
-                      <Stack
-                        direction="row"
-                        sx={{ justifyContent: "space-between", alignItems: "flex-start", mb: 1 }}
-                      >
-                        <Chip
-                          icon={<Icon fontSize="small" />}
-                          label={ACTIVITY_TYPE_LABELS[entry.type]}
-                          color={ACTIVITY_TYPE_COLORS[entry.type]}
-                          size="small"
-                          variant="outlined"
-                        />
-                        <Typography variant="caption" color="text.secondary">
-                          {dayjs(entry.createdAt).format("DD MMM, HH:mm")}
+                  <Stack key={entry.id} direction="row" spacing={1.5}>
+                    <Stack sx={{ alignItems: "center" }}>
+                      <TypeIconAvatar icon={Icon} color={ACTIVITY_TYPE_COLORS[entry.type]} />
+                      {!isLast && <Box sx={{ width: 2, flexGrow: 1, bgcolor: "divider", my: 0.5 }} />}
+                    </Stack>
+                    <Card variant="outlined" sx={{ flexGrow: 1, mb: isLast ? 0 : 1.5 }}>
+                      <CardContent>
+                        <Stack
+                          direction="row"
+                          sx={{ justifyContent: "space-between", alignItems: "flex-start", mb: 1 }}
+                        >
+                          <Chip
+                            label={ACTIVITY_TYPE_LABELS[entry.type]}
+                            color={ACTIVITY_TYPE_COLORS[entry.type]}
+                            size="small"
+                          />
+                          <Typography variant="caption" color="text.secondary">
+                            {dayjs(entry.createdAt).format("DD MMM, HH:mm")}
+                          </Typography>
+                        </Stack>
+                        <Typography variant="body2" sx={{ mb: 0.5 }}>
+                          {entry.description}
                         </Typography>
-                      </Stack>
-                      <Typography variant="body2" sx={{ mb: 0.5 }}>
-                        {entry.description}
-                      </Typography>
-                      <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
-                        <MuiLink component={RouterLink} to={`/app/leads/${entry.leadId}`}>
-                          {entry.companyName}
-                        </MuiLink>
-                        <Typography variant="caption" color="text.secondary">
-                          {resolveActorName(entry.actorId, employeeNameById)}
-                        </Typography>
-                      </Stack>
-                    </CardContent>
-                  </Card>
+                        <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
+                          <MuiLink component={RouterLink} to={`/app/leads/${entry.leadId}`}>
+                            {entry.companyName}
+                          </MuiLink>
+                          <Typography variant="caption" color="text.secondary">
+                            {resolveActorName(entry.actorId, employeeNameById)}
+                          </Typography>
+                        </Stack>
+                      </CardContent>
+                    </Card>
+                  </Stack>
                 );
               })}
             </Stack>
@@ -254,6 +260,7 @@ export function ActivityPage() {
               <Table size="small">
                 <TableHead>
                   <TableRow>
+                    <TableCell sx={{ width: 56 }} />
                     <TableCell>Type</TableCell>
                     <TableCell>Description</TableCell>
                     <TableCell>Company</TableCell>
@@ -267,12 +274,13 @@ export function ActivityPage() {
                     return (
                       <TableRow key={entry.id} hover>
                         <TableCell>
+                          <TypeIconAvatar icon={Icon} color={ACTIVITY_TYPE_COLORS[entry.type]} size={32} />
+                        </TableCell>
+                        <TableCell>
                           <Chip
-                            icon={<Icon fontSize="small" />}
                             label={ACTIVITY_TYPE_LABELS[entry.type]}
                             color={ACTIVITY_TYPE_COLORS[entry.type]}
                             size="small"
-                            variant="outlined"
                           />
                         </TableCell>
                         <TableCell>{entry.description}</TableCell>

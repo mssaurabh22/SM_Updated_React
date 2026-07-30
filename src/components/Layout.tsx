@@ -16,6 +16,7 @@ import {
   ListSubheader,
   Menu,
   MenuItem,
+  Stack,
   Toolbar,
   Typography,
   Button,
@@ -27,6 +28,8 @@ import LogoutIcon from "@mui/icons-material/Logout";
 import MenuIcon from "@mui/icons-material/Menu";
 import TuneIcon from "@mui/icons-material/Tune";
 import PeopleIcon from "@mui/icons-material/People";
+import AccountTreeIcon from "@mui/icons-material/AccountTree";
+import GroupsIcon from "@mui/icons-material/Groups";
 import AssignmentIcon from "@mui/icons-material/Assignment";
 import HistoryIcon from "@mui/icons-material/History";
 import BarChartIcon from "@mui/icons-material/BarChart";
@@ -50,7 +53,14 @@ import {
   useNotifications,
   useUnreadNotificationCount,
 } from "../api/notificationsApi";
-import { describeNotification, getNotificationTarget } from "../utils/notificationFormat";
+import {
+  NOTIFICATION_TYPE_COLORS,
+  NOTIFICATION_TYPE_ICONS,
+  describeNotification,
+  getNotificationTarget,
+  isNotificationVisible,
+} from "../utils/notificationFormat";
+import { TypeIconAvatar } from "./TypeIconAvatar";
 
 const DRAWER_WIDTH = 220;
 
@@ -102,7 +112,11 @@ export function Layout() {
   // happen to be in the last 10 fetched" - see useUnreadNotificationCount's own comment.
   const { data: unreadCount = 0 } = useUnreadNotificationCount();
 
-  const notifications = notificationsPage?.content ?? [];
+  // A notification whose feature has since been un-licensed has nowhere valid to navigate to
+  // anymore - hide it rather than show a dead link (see isNotificationVisible's own comment).
+  const notifications = (notificationsPage?.content ?? []).filter((n) =>
+    isNotificationVisible(n, hasEntitlement),
+  );
 
   const handleLogout = async () => {
     await logout();
@@ -187,9 +201,21 @@ export function Layout() {
         onClick={() => handleNavigate("/app/notifications")}
       >
         <ListItemIcon>
-          <NotificationsIcon />
+          <Badge badgeContent={unreadCount} color="error" max={99}>
+            <NotificationsIcon />
+          </Badge>
         </ListItemIcon>
         <ListItemText primary="Notifications" />
+      </ListItemButton>
+
+      <ListItemButton
+        selected={location.pathname.startsWith("/app/my-team")}
+        onClick={() => handleNavigate("/app/my-team")}
+      >
+        <ListItemIcon>
+          <GroupsIcon />
+        </ListItemIcon>
+        <ListItemText primary="My Team" />
       </ListItemButton>
 
       {/* ADMINs already get a "Reports" item in the Administration section below - this is
@@ -303,13 +329,23 @@ export function Layout() {
           </ListItemButton>
 
           <ListItemButton
-            selected={location.pathname.startsWith("/app/employees")}
+            selected={location.pathname === "/app/employees"}
             onClick={() => handleNavigate("/app/employees")}
           >
             <ListItemIcon>
               <PeopleIcon />
             </ListItemIcon>
             <ListItemText primary="Employees" />
+          </ListItemButton>
+
+          <ListItemButton
+            selected={location.pathname.startsWith("/app/employees/org-chart")}
+            onClick={() => handleNavigate("/app/employees/org-chart")}
+          >
+            <ListItemIcon>
+              <AccountTreeIcon />
+            </ListItemIcon>
+            <ListItemText primary="Org Structure" />
           </ListItemButton>
 
           <ListItemButton
@@ -427,28 +463,39 @@ export function Layout() {
                     whiteSpace: "normal",
                     alignItems: "flex-start",
                     py: 1.5,
-                    gap: 1,
+                    gap: 1.25,
                     bgcolor: notification.isRead ? "transparent" : "action.selected",
+                    opacity: notification.isRead ? 0.6 : 1,
                   }}
                 >
-                  {/* Unread dot - a clearer at-a-glance signal than the background tint alone. */}
-                  <Box
-                    sx={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: "50%",
-                      mt: 0.75,
-                      flexShrink: 0,
-                      bgcolor: notification.isRead ? "transparent" : "error.main",
-                    }}
+                  <TypeIconAvatar
+                    icon={NOTIFICATION_TYPE_ICONS[notification.type]}
+                    color={NOTIFICATION_TYPE_COLORS[notification.type]}
+                    size={32}
+                    muted={notification.isRead}
                   />
-                  <Box>
-                    <Typography
-                      variant="body2"
-                      sx={{ fontWeight: notification.isRead ? 400 : 700 }}
-                    >
-                      {describeNotification(notification)}
-                    </Typography>
+                  <Box sx={{ minWidth: 0, flexGrow: 1 }}>
+                    <Stack direction="row" sx={{ alignItems: "flex-start", justifyContent: "space-between", gap: 1 }}>
+                      <Typography
+                        variant="body2"
+                        sx={{ fontWeight: notification.isRead ? 400 : 700 }}
+                      >
+                        {describeNotification(notification)}
+                      </Typography>
+                      {/* Unread dot - a clearer at-a-glance signal than the background tint alone. */}
+                      {!notification.isRead && (
+                        <Box
+                          sx={{
+                            width: 8,
+                            height: 8,
+                            borderRadius: "50%",
+                            mt: 0.75,
+                            flexShrink: 0,
+                            bgcolor: "error.main",
+                          }}
+                        />
+                      )}
+                    </Stack>
                     <Typography variant="caption" color="text.secondary">
                       {dayjs(notification.createdAt).format("DD MMM YYYY, HH:mm")}
                     </Typography>

@@ -34,6 +34,28 @@ export interface GetVisitsCompletedVsMissedParams {
   dateTo?: string;
 }
 
+export interface LeadSourceBreakdown {
+  label: string;
+  count: number;
+}
+
+export interface LeadsBySource {
+  bySource: LeadSourceBreakdown[];
+}
+
+/** entitled is false (revenue always 0) when the org hasn't licensed INVENTORY_MANAGEMENT -
+ * the Dashboard hides the Revenue card entirely in that case rather than showing a
+ * misleading "0". */
+export interface Revenue {
+  entitled: boolean;
+  revenue: number;
+}
+
+export interface GetRevenueParams {
+  dateFrom?: string;
+  dateTo?: string;
+}
+
 export async function getPipelineSummary(): Promise<PipelineSummary> {
   const response = await axiosInstance.get<PipelineSummary>(
     "/reports/pipeline-summary",
@@ -79,5 +101,31 @@ export function useVisitsCompletedVsMissed(
   return useQuery({
     queryKey: ["reports", "visits-completed-vs-missed", dateFrom, dateTo],
     queryFn: () => getVisitsCompletedVsMissed({ dateFrom, dateTo }),
+  });
+}
+
+export async function getLeadsBySource(): Promise<LeadsBySource> {
+  const response = await axiosInstance.get<LeadsBySource>("/reports/leads-by-source");
+  return response.data;
+}
+
+export async function getRevenue(params: GetRevenueParams = {}): Promise<Revenue> {
+  const response = await axiosInstance.get<Revenue>("/reports/revenue", { params });
+  return response.data;
+}
+
+export function useLeadsBySource(enabled = true) {
+  return useQuery({
+    queryKey: ["reports", "leads-by-source"],
+    queryFn: () => getLeadsBySource(),
+    enabled,
+  });
+}
+
+export function useRevenue(enabled = true) {
+  return useQuery({
+    queryKey: ["reports", "revenue"],
+    queryFn: () => getRevenue(),
+    enabled,
   });
 }

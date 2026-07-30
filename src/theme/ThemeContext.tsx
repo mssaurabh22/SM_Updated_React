@@ -9,11 +9,16 @@ import {
 } from "../api/themeApi";
 import { createAppTheme, type EffectiveThemeSettings } from "./createAppTheme";
 
-/** Ultimate fallback when nothing has ever been customized — matches the
- * original static theme exactly, so an out-of-the-box org looks unchanged. */
+/** Ultimate fallback when nothing has ever been customized. Updated 2026-07-29 as part of
+ * a visual reskin pass: primaryColor from the original "#1565c0" to an indigo accent, and
+ * mode from "light" to "dark" (the richer near-black palette is the whole point of the
+ * reskin, so it needs to be visible without anyone having to flip a Settings toggle first).
+ * Any org/user that already set their own primaryColor/mode via Settings is unaffected
+ * either way, since a set value always wins over this fallback (see resolveEffectiveTheme
+ * below). */
 const HARDCODED_DEFAULTS: EffectiveThemeSettings = {
-  primaryColor: "#1565c0",
-  mode: "light",
+  primaryColor: "#6366f1",
+  mode: "dark",
   density: "comfortable",
 };
 
@@ -33,6 +38,13 @@ function toMuiDensity(
  * hardcoded fallback. MUI-facing enums (mode/density) are lowercased here, at the
  * boundary where org + personal settings are resolved into one — `createAppTheme`
  * itself stays agnostic of the backend's uppercase representation.
+ *
+ * Every field's final fallback is HARDCODED_DEFAULTS - mode and density used to fall back
+ * to their own separate literal "LIGHT"/"COMFORTABLE" strings here instead, which silently
+ * overrode HARDCODED_DEFAULTS.mode the moment the org/user theme queries resolved (i.e.
+ * almost immediately after login) even though the un-resolved initial paint correctly used
+ * it. Fixed 2026-07-29 alongside flipping the default to dark, since that bug would have
+ * made the new default revert to light right after the queries came back.
  */
 export function resolveEffectiveTheme(
   orgTheme: ThemeSettings | undefined,
@@ -42,13 +54,21 @@ export function resolveEffectiveTheme(
     userPreference?.primaryColor ??
     orgTheme?.primaryColor ??
     HARDCODED_DEFAULTS.primaryColor;
-  const mode = userPreference?.mode ?? orgTheme?.mode ?? "LIGHT";
-  const density = userPreference?.density ?? orgTheme?.density ?? "COMFORTABLE";
+  const mode = userPreference?.mode
+    ? toMuiMode(userPreference.mode)
+    : orgTheme?.mode
+      ? toMuiMode(orgTheme.mode)
+      : HARDCODED_DEFAULTS.mode;
+  const density = userPreference?.density
+    ? toMuiDensity(userPreference.density)
+    : orgTheme?.density
+      ? toMuiDensity(orgTheme.density)
+      : HARDCODED_DEFAULTS.density;
 
   return {
     primaryColor,
-    mode: toMuiMode(mode),
-    density: toMuiDensity(density),
+    mode,
+    density,
   };
 }
 

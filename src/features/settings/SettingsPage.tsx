@@ -38,8 +38,8 @@ type Density = "COMFORTABLE" | "COMPACT";
 
 /** Hardcoded fallbacks — must match createAppTheme.ts / ThemeContext.tsx exactly. */
 const HARDCODED_DEFAULTS = {
-  primaryColor: "#1565c0",
-  mode: "LIGHT" as Mode,
+  primaryColor: "#6366f1",
+  mode: "DARK" as Mode,
   density: "COMFORTABLE" as Density,
 };
 

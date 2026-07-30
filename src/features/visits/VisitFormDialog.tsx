@@ -310,6 +310,31 @@ export function VisitFormDialog({
         <DialogContent>
           <Stack spacing={2}>
             {formError && <Alert severity="error">{formError}</Alert>}
+
+            {/* Visit type comes first and stands alone, full-width - it's the first thing
+                worth deciding whenever a visit is being added (this dialog is now most often
+                reached via the Leads page's "Add Visit" entry point), and it's just one field,
+                so it doesn't need to share a row with date/time. */}
+            <Controller
+              control={form.control}
+              name="visitType"
+              render={({ field }) => (
+                <TextField
+                  select
+                  label="Visit type"
+                  value={field.value}
+                  onChange={(e) => field.onChange(e.target.value)}
+                  sx={{ maxWidth: 280 }}
+                >
+                  {VISIT_TYPES.map((t) => (
+                    <MenuItem key={t} value={t}>
+                      {VISIT_TYPE_LABELS[t]}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              )}
+            />
+
             {sameDayMatches.length > 0 && (
               <Alert severity="warning" onClose={() => setSameDayMatches([])}>
                 <Typography variant="body2" sx={{ mb: 0.5 }}>
@@ -327,28 +352,7 @@ export function VisitFormDialog({
             )}
 
             <Grid container spacing={2}>
-              <Grid size={{ xs: 12, sm: 4 }}>
-                <Controller
-                  control={form.control}
-                  name="visitType"
-                  render={({ field }) => (
-                    <TextField
-                      select
-                      label="Visit type"
-                      fullWidth
-                      value={field.value}
-                      onChange={(e) => field.onChange(e.target.value)}
-                    >
-                      {VISIT_TYPES.map((t) => (
-                        <MenuItem key={t} value={t}>
-                          {VISIT_TYPE_LABELS[t]}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                  )}
-                />
-              </Grid>
-              <Grid size={{ xs: 12, sm: 4 }}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <Controller
                   control={form.control}
                   name="visitDate"
@@ -372,7 +376,7 @@ export function VisitFormDialog({
                   )}
                 />
               </Grid>
-              <Grid size={{ xs: 12, sm: 4 }}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <Controller
                   control={form.control}
                   name="scheduledTime"
@@ -387,7 +391,7 @@ export function VisitFormDialog({
                 />
               </Grid>
 
-              <Grid size={{ xs: 12, sm: 4 }}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <Controller
                   control={form.control}
                   name="purposeId"
@@ -407,7 +411,7 @@ export function VisitFormDialog({
               </Grid>
 
               {!isEditMode && (
-                <Grid size={{ xs: 12, sm: 8 }}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <Controller
                     control={form.control}
                     name="alreadyCompleted"
@@ -461,6 +465,7 @@ export function VisitFormDialog({
                 <TextField
                   label="Contact number"
                   fullWidth
+                  slotProps={{ htmlInput: { inputMode: "numeric" } }}
                   {...form.register("contactNo")}
                 />
               </Grid>

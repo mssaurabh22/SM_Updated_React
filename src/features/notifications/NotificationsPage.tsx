@@ -39,13 +39,16 @@ import {
 import { parseApiError } from "../../api/errorHelpers";
 import { exportToCsv } from "../../utils/exportToCsv";
 import { TableToolbar } from "../../components/TableToolbar";
+import { TypeIconAvatar } from "../../components/TypeIconAvatar";
 import {
   NOTIFICATION_TYPE_COLORS,
   NOTIFICATION_TYPE_ICONS,
   NOTIFICATION_TYPE_LABELS,
   describeNotification,
   getNotificationTarget,
+  isNotificationVisible,
 } from "../../utils/notificationFormat";
+import { useEntitlements } from "../../entitlement/EntitlementContext";
 
 const PAGE_SIZE = 20;
 
@@ -76,16 +79,20 @@ export function NotificationsPage() {
   const { data: unreadCount = 0 } = useUnreadNotificationCount();
   const markReadMutation = useMarkNotificationRead();
   const markAllReadMutation = useMarkAllNotificationsRead();
+  const { hasEntitlement } = useEntitlements();
 
   const visibleNotifications = useMemo(() => {
     const content = data?.content ?? [];
     const term = search.trim().toLowerCase();
     return content.filter((n) => {
+      // A notification whose feature has since been un-licensed has nowhere valid to navigate
+      // to anymore (see isNotificationVisible's own comment) - hide it rather than show a dead link.
+      if (!isNotificationVisible(n, hasEntitlement)) return false;
       if (typeFilter && n.type !== typeFilter) return false;
       if (!term) return true;
       return describeNotification(n).toLowerCase().includes(term);
     });
-  }, [data, search, typeFilter]);
+  }, [data, search, typeFilter, hasEntitlement]);
 
   const handleNotificationClick = (notification: Notification) => {
     if (!notification.isRead) {
@@ -212,44 +219,55 @@ export function NotificationsPage() {
                   <Card
                     key={notification.id}
                     variant="outlined"
-                    sx={{ cursor: "pointer", bgcolor: notification.isRead ? "transparent" : "action.selected" }}
+                    sx={{
+                      cursor: "pointer",
+                      bgcolor: notification.isRead ? "transparent" : "action.selected",
+                      opacity: notification.isRead ? 0.6 : 1,
+                    }}
                     onClick={() => handleNotificationClick(notification)}
                   >
                     <CardContent>
-                      <Stack
-                        direction="row"
-                        sx={{ justifyContent: "space-between", alignItems: "flex-start", mb: 1 }}
-                      >
-                        <Chip
-                          icon={<Icon fontSize="small" />}
-                          label={NOTIFICATION_TYPE_LABELS[notification.type]}
+                      <Stack direction="row" spacing={1.5} sx={{ alignItems: "flex-start" }}>
+                        <TypeIconAvatar
+                          icon={Icon}
                           color={NOTIFICATION_TYPE_COLORS[notification.type]}
-                          size="small"
-                          variant="outlined"
+                          muted={notification.isRead}
                         />
-                        <Typography variant="caption" color="text.secondary">
-                          {dayjs(notification.createdAt).format("DD MMM, HH:mm")}
-                        </Typography>
-                      </Stack>
-                      <Stack direction="row" spacing={1} sx={{ alignItems: "flex-start" }}>
-                        {!notification.isRead && (
-                          <Box
-                            sx={{
-                              width: 8,
-                              height: 8,
-                              borderRadius: "50%",
-                              mt: 0.75,
-                              flexShrink: 0,
-                              bgcolor: "error.main",
-                            }}
-                          />
-                        )}
-                        <Typography
-                          variant="body2"
-                          sx={{ fontWeight: notification.isRead ? 400 : 700 }}
-                        >
-                          {describeNotification(notification)}
-                        </Typography>
+                        <Box sx={{ minWidth: 0, flexGrow: 1 }}>
+                          <Stack
+                            direction="row"
+                            sx={{ justifyContent: "space-between", alignItems: "flex-start", mb: 0.5 }}
+                          >
+                            <Chip
+                              label={NOTIFICATION_TYPE_LABELS[notification.type]}
+                              color={NOTIFICATION_TYPE_COLORS[notification.type]}
+                              size="small"
+                            />
+                            <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0, ml: 1 }}>
+                              {dayjs(notification.createdAt).format("DD MMM, HH:mm")}
+                            </Typography>
+                          </Stack>
+                          <Stack direction="row" spacing={1} sx={{ alignItems: "flex-start" }}>
+                            {!notification.isRead && (
+                              <Box
+                                sx={{
+                                  width: 8,
+                                  height: 8,
+                                  borderRadius: "50%",
+                                  mt: 0.75,
+                                  flexShrink: 0,
+                                  bgcolor: "error.main",
+                                }}
+                              />
+                            )}
+                            <Typography
+                              variant="body2"
+                              sx={{ fontWeight: notification.isRead ? 400 : 700 }}
+                            >
+                              {describeNotification(notification)}
+                            </Typography>
+                          </Stack>
+                        </Box>
                       </Stack>
                     </CardContent>
                   </Card>
@@ -263,7 +281,7 @@ export function NotificationsPage() {
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell />
+                    <TableCell sx={{ width: 56 }} />
                     <TableCell>Type</TableCell>
                     <TableCell>Message</TableCell>
                     <TableCell>When</TableCell>
@@ -279,32 +297,40 @@ export function NotificationsPage() {
                         sx={{
                           cursor: "pointer",
                           bgcolor: notification.isRead ? "transparent" : "action.selected",
+                          opacity: notification.isRead ? 0.6 : 1,
                         }}
                         onClick={() => handleNotificationClick(notification)}
                       >
-                        <TableCell sx={{ width: 24 }}>
-                          {!notification.isRead && (
-                            <Box
-                              sx={{
-                                width: 8,
-                                height: 8,
-                                borderRadius: "50%",
-                                bgcolor: "error.main",
-                              }}
-                            />
-                          )}
+                        <TableCell>
+                          <TypeIconAvatar
+                            icon={Icon}
+                            color={NOTIFICATION_TYPE_COLORS[notification.type]}
+                            size={32}
+                            muted={notification.isRead}
+                          />
                         </TableCell>
                         <TableCell>
                           <Chip
-                            icon={<Icon fontSize="small" />}
                             label={NOTIFICATION_TYPE_LABELS[notification.type]}
                             color={NOTIFICATION_TYPE_COLORS[notification.type]}
                             size="small"
-                            variant="outlined"
                           />
                         </TableCell>
                         <TableCell sx={{ fontWeight: notification.isRead ? 400 : 700 }}>
-                          {describeNotification(notification)}
+                          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                            {!notification.isRead && (
+                              <Box
+                                sx={{
+                                  width: 8,
+                                  height: 8,
+                                  borderRadius: "50%",
+                                  flexShrink: 0,
+                                  bgcolor: "error.main",
+                                }}
+                              />
+                            )}
+                            <span>{describeNotification(notification)}</span>
+                          </Stack>
                         </TableCell>
                         <TableCell>
                           {dayjs(notification.createdAt).format("DD MMM YYYY, HH:mm")}

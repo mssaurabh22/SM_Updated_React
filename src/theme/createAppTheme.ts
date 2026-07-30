@@ -15,8 +15,8 @@ export interface EffectiveThemeSettings {
  * Builds the MUI theme from fully-resolved settings. Org branding + optional
  * per-user override are merged upstream (see ThemeContext.tsx); this factory only
  * ever sees the final, effective values. The ultimate fallback for anyone who
- * hasn't customized anything is unchanged from the original static theme:
- * primary "#1565c0", light mode, comfortable density.
+ * hasn't customized anything is set in ThemeContext.tsx's HARDCODED_DEFAULTS
+ * (indigo "#6366f1", light mode, comfortable density, as of the 2026-07-29 reskin).
  */
 export function createAppTheme(settings: EffectiveThemeSettings): Theme {
   const isCompact = settings.density === "compact";
@@ -80,13 +80,15 @@ export function createAppTheme(settings: EffectiveThemeSettings): Theme {
         root: {
           backgroundImage: "none",
         },
-        outlined: {
-          borderColor: "rgba(127, 127, 127, 0.24)",
-        },
-        elevation1: {
+        outlined: ({ theme }: { theme: Theme }) => ({
+          borderColor: theme.palette.divider,
+        }),
+        elevation1: ({ theme }: { theme: Theme }) => ({
           boxShadow:
-            "0 1px 2px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.08)",
-        },
+            theme.palette.mode === "dark"
+              ? "0 1px 2px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3)"
+              : "0 1px 2px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.08)",
+        }),
       },
     },
     MuiCard: {
@@ -136,6 +138,30 @@ export function createAppTheme(settings: EffectiveThemeSettings): Theme {
         }),
       },
     },
+    // A flat, bordered surface (no solid color fill, no drop shadow) instead of MUI's
+    // default solid-primary AppBar - matches the "chrome recedes, content leads" look
+    // of both reference designs discussed in the UI reskin pass, and works identically
+    // in light/dark since it's driven by palette.background/divider, not a hardcoded color.
+    MuiAppBar: {
+      styleOverrides: {
+        root: ({ theme }: { theme: Theme }) => ({
+          backgroundColor: theme.palette.background.paper,
+          backgroundImage: "none",
+          color: theme.palette.text.primary,
+          boxShadow: "none",
+          borderBottom: `1px solid ${theme.palette.divider}`,
+        }),
+      },
+    },
+    // The permanent sidebar Drawer gets the same flat-bordered treatment, so it reads
+    // as one continuous surface with the AppBar rather than a separate colored block.
+    MuiDrawer: {
+      styleOverrides: {
+        paper: ({ theme }: { theme: Theme }) => ({
+          borderRight: `1px solid ${theme.palette.divider}`,
+        }),
+      },
+    },
   };
 
   // Density overrides are applied per-component on top of the base ones, so
@@ -146,6 +172,15 @@ export function createAppTheme(settings: EffectiveThemeSettings): Theme {
     components[key] = { ...(components[key] as object | undefined), ...value };
   }
 
+  // Richer surface tones than MUI's defaults (which use a fairly flat mid-grey for dark
+  // mode, and pure white-on-white for light mode) - a near-black background with a
+  // slightly-lighter paper tone gives dark mode actual depth between "page" and "card",
+  // and a soft off-white background does the same in light mode against white cards.
+  const backgroundPalette =
+    settings.mode === "dark"
+      ? { default: "#0b0d14", paper: "#12141f" }
+      : { default: "#f6f7fb", paper: "#ffffff" };
+
   return createTheme({
     palette: {
       mode: settings.mode,
@@ -155,9 +190,12 @@ export function createAppTheme(settings: EffectiveThemeSettings): Theme {
       secondary: {
         main: "#00897b",
       },
+      background: backgroundPalette,
+      divider:
+        settings.mode === "dark" ? "rgba(255, 255, 255, 0.09)" : "rgba(17, 24, 39, 0.08)",
     },
     shape: {
-      borderRadius: 10,
+      borderRadius: 12,
     },
     typography: {
       fontFamily:

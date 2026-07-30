@@ -29,8 +29,8 @@ export function StatCard({ icon, color = "primary", value, label }: StatCardProp
             justifyContent: "center",
             width: 48,
             height: 48,
-            borderRadius: "50%",
-            bgcolor: alpha(mainColor, 0.12),
+            borderRadius: 2,
+            bgcolor: alpha(mainColor, 0.14),
             color: mainColor,
             flexShrink: 0,
           }}

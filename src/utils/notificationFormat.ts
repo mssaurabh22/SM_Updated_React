@@ -1,5 +1,6 @@
 import type { ComponentType } from "react";
 import type { SvgIconProps } from "@mui/material";
+import dayjs from "dayjs";
 import AssignmentIndIcon from "@mui/icons-material/AssignmentInd";
 import ErrorIcon from "@mui/icons-material/Error";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
@@ -8,6 +9,7 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
 import Inventory2Icon from "@mui/icons-material/Inventory2";
 import type { Notification, NotificationType } from "../api/notificationsApi";
+import type { FeatureEntitlement } from "../api/entitlementApi";
 
 /**
  * Shared between the Layout bell dropdown and the full Notifications page, so both render
@@ -17,15 +19,41 @@ export interface NotificationPayload {
   leadId?: string;
   companyName?: string;
   visitId?: string;
+  visitDate?: string;
+  scheduledTime?: string;
+  nextFollowupDate?: string;
+  reassignedByName?: string;
   count?: number;
   leaveRequestId?: string;
   leaveTypeId?: string;
+  leaveTypeName?: string;
+  employeeName?: string;
   startDate?: string;
   endDate?: string;
   productId?: string;
   productName?: string;
   stockQuantity?: number;
   [key: string]: unknown;
+}
+
+/** "22 Jul" - "24 Jul 2026" (only one date, no range) if startDate === endDate. */
+function formatDateRange(startDate?: string, endDate?: string): string | null {
+  if (!startDate || !endDate) return null;
+  const start = dayjs(startDate);
+  const end = dayjs(endDate);
+  if (!start.isValid() || !end.isValid()) return null;
+  if (start.isSame(end, "day")) return start.format("DD MMM YYYY");
+  return `${start.format("DD MMM")} - ${end.format("DD MMM YYYY")}`;
+}
+
+/** "21 Jul, 06:00 AM" if a scheduled time is present, else just "21 Jul". */
+function formatVisitWhen(visitDate?: string, scheduledTime?: string): string | null {
+  if (!visitDate) return null;
+  const date = dayjs(visitDate);
+  if (!date.isValid()) return null;
+  if (!scheduledTime) return date.format("DD MMM");
+  const time = dayjs(scheduledTime, ["HH:mm:ss", "HH:mm"]);
+  return time.isValid() ? `${date.format("DD MMM")}, ${time.format("hh:mm A")}` : date.format("DD MMM");
 }
 
 export function parseNotificationPayload(
@@ -43,30 +71,56 @@ export function parseNotificationPayload(
 export function describeNotification(notification: Notification): string {
   const payload = parseNotificationPayload(notification.payload);
   switch (notification.type) {
-    case "LEAD_REASSIGNED":
-      return payload?.companyName
-        ? `You were assigned the lead "${payload.companyName}".`
-        : "You were assigned a lead.";
-    case "VISIT_MISSED":
-      return payload?.companyName
-        ? `A visit for "${payload.companyName}" was missed.`
-        : "A scheduled visit was missed.";
-    case "LEAD_LAPSED":
-      return payload?.companyName
-        ? `Your lead "${payload.companyName}" has lapsed - its follow-up date passed.`
-        : "One of your leads has lapsed.";
+    case "LEAD_REASSIGNED": {
+      const who = payload?.reassignedByName;
+      if (!payload?.companyName) return "You were assigned a lead.";
+      return who
+        ? `${who} assigned you the lead "${payload.companyName}".`
+        : `You were assigned the lead "${payload.companyName}".`;
+    }
+    case "VISIT_MISSED": {
+      const when = formatVisitWhen(payload?.visitDate, payload?.scheduledTime);
+      if (!payload?.companyName) return "A scheduled visit was missed.";
+      return when
+        ? `A visit for "${payload.companyName}" scheduled on ${when} was missed.`
+        : `A visit for "${payload.companyName}" was missed.`;
+    }
+    case "LEAD_LAPSED": {
+      const followupDate = payload?.nextFollowupDate ? dayjs(payload.nextFollowupDate) : null;
+      const formattedDate = followupDate?.isValid() ? followupDate.format("DD MMM YYYY") : null;
+      if (!payload?.companyName) return "One of your leads has lapsed.";
+      return formattedDate
+        ? `Your lead "${payload.companyName}" has lapsed - its follow-up date (${formattedDate}) passed.`
+        : `Your lead "${payload.companyName}" has lapsed - its follow-up date passed.`;
+    }
     case "LEAD_LAPSED_DIGEST": {
       const count = payload?.count;
       return count
         ? `${count} of your team's lead${count === 1 ? "" : "s"} lapsed last night - review the pipeline.`
         : "Some of your team's leads lapsed last night - review the pipeline.";
     }
-    case "LEAVE_REQUEST_SUBMITTED":
-      return "A leave request was submitted for your approval.";
-    case "LEAVE_REQUEST_APPROVED":
-      return "Your leave request was approved.";
-    case "LEAVE_REQUEST_REJECTED":
-      return "Your leave request was rejected.";
+    case "LEAVE_REQUEST_SUBMITTED": {
+      const who = payload?.employeeName ?? "An employee";
+      const type = payload?.leaveTypeName ?? "leave";
+      const range = formatDateRange(payload?.startDate, payload?.endDate);
+      return range
+        ? `${who} requested ${type} (${range}) - awaiting your approval.`
+        : `${who} requested ${type} - awaiting your approval.`;
+    }
+    case "LEAVE_REQUEST_APPROVED": {
+      const type = payload?.leaveTypeName ?? "leave";
+      const range = formatDateRange(payload?.startDate, payload?.endDate);
+      return range
+        ? `Your ${type} request (${range}) was approved.`
+        : `Your ${type} request was approved.`;
+    }
+    case "LEAVE_REQUEST_REJECTED": {
+      const type = payload?.leaveTypeName ?? "leave";
+      const range = formatDateRange(payload?.startDate, payload?.endDate);
+      return range
+        ? `Your ${type} request (${range}) was rejected.`
+        : `Your ${type} request was rejected.`;
+    }
     case "LOW_STOCK":
       return payload?.productName
         ? `"${payload.productName}" is running low on stock (${payload.stockQuantity ?? "?"} left).`
@@ -115,6 +169,31 @@ export const NOTIFICATION_TYPE_COLORS: Record<
   LEAVE_REQUEST_REJECTED: "error",
   LOW_STOCK: "warning",
 };
+
+/** Which entitlement (if any) a notification type belongs to - LEAVE_REQUEST_* only exist
+ * because EMPLOYEE_LEAVE_MANAGEMENT was on when they were created, LOW_STOCK because
+ * INVENTORY_MANAGEMENT was; both endpoints that would have generated NEW ones are already
+ * blocked server-side once the entitlement is off, so this only ever hides historical
+ * notifications from back when the feature was still licensed. Types with no entry here
+ * (Lead/Visit lifecycle events) are core, never entitlement-gated. */
+const NOTIFICATION_TYPE_ENTITLEMENT: Partial<Record<NotificationType, FeatureEntitlement>> = {
+  LEAVE_REQUEST_SUBMITTED: "EMPLOYEE_LEAVE_MANAGEMENT",
+  LEAVE_REQUEST_APPROVED: "EMPLOYEE_LEAVE_MANAGEMENT",
+  LEAVE_REQUEST_REJECTED: "EMPLOYEE_LEAVE_MANAGEMENT",
+  LOW_STOCK: "INVENTORY_MANAGEMENT",
+};
+
+/** False for a notification whose feature is no longer licensed - its target route/nav item is
+ * already hidden/blocked elsewhere in the app, so clicking through would only dead-end on a
+ * "Forbidden" page. The bell dropdown and the full Notifications page both filter on this
+ * before rendering, rather than showing a notification with nowhere valid to go. */
+export function isNotificationVisible(
+  notification: Notification,
+  hasEntitlement: (code: FeatureEntitlement) => boolean,
+): boolean {
+  const required = NOTIFICATION_TYPE_ENTITLEMENT[notification.type];
+  return !required || hasEntitlement(required);
+}
 
 /** Where clicking a notification should navigate to, or null if there's nowhere sensible to go. */
 export function getNotificationTarget(notification: Notification): string | null {

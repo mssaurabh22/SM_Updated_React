@@ -28,6 +28,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import BlockIcon from "@mui/icons-material/Block";
 import type { Employee } from "../../api/employeesApi";
 import { getEmployees, useDeactivateEmployee, useEmployees } from "../../api/employeesApi";
+import { useMasterData } from "../../api/masterDataApi";
 import { parseApiError } from "../../api/errorHelpers";
 import { exportToCsv } from "../../utils/exportToCsv";
 import { TableToolbar } from "../../components/TableToolbar";
@@ -45,6 +46,22 @@ export function EmployeeListPage() {
     size: PAGE_SIZE,
   });
   const deactivateMutation = useDeactivateEmployee();
+
+  // Unpaginated (separately cached) so a manager's name resolves correctly even when that
+  // manager isn't on the currently-displayed page.
+  const { data: allEmployeesPage } = useEmployees({ size: 500 });
+  const managerNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const emp of allEmployeesPage?.content ?? []) map.set(emp.id, emp.fullName);
+    return map;
+  }, [allEmployeesPage]);
+
+  const { data: designations } = useMasterData("DESIGNATION");
+  const designationLabelById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const item of designations ?? []) map.set(item.id, item.label);
+    return map;
+  }, [designations]);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
@@ -72,10 +89,19 @@ export function EmployeeListPage() {
     setExportLoading(true);
     try {
       const all = await getEmployees({ size: 1000 });
+      const managerNameByIdForExport = new Map(all.content.map((e) => [e.id, e.fullName]));
       exportToCsv<Employee>(`employees-${dayjs().format("YYYY-MM-DD")}.csv`, all.content, [
         { label: "Full Name", value: (e) => e.fullName },
         { label: "Email", value: (e) => e.email },
         { label: "Role", value: (e) => e.role },
+        {
+          label: "Designation",
+          value: (e) => (e.designationId ? (designationLabelById.get(e.designationId) ?? "") : ""),
+        },
+        {
+          label: "Reports To",
+          value: (e) => (e.managerId ? (managerNameByIdForExport.get(e.managerId) ?? "") : ""),
+        },
         { label: "Active", value: (e) => (e.active ? "Active" : "Inactive") },
       ]);
     } catch (err) {
@@ -209,7 +235,7 @@ export function EmployeeListPage() {
                         </Tooltip>
                       </Stack>
                     </Stack>
-                    <Stack direction="row" spacing={1}>
+                    <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 0.5 }}>
                       <Chip
                         label={employee.role}
                         size="small"
@@ -222,6 +248,15 @@ export function EmployeeListPage() {
                         size="small"
                       />
                     </Stack>
+                    {employee.designationId && (
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                        {designationLabelById.get(employee.designationId) ?? "—"}
+                      </Typography>
+                    )}
+                    <Typography variant="body2" color="text.secondary">
+                      Reports to:{" "}
+                      {employee.managerId ? (managerNameById.get(employee.managerId) ?? "—") : "—"}
+                    </Typography>
                   </CardContent>
                 </Card>
               ))}
@@ -235,6 +270,8 @@ export function EmployeeListPage() {
                   <TableRow>
                     <TableCell>Full name</TableCell>
                     <TableCell>Email</TableCell>
+                    <TableCell>Designation</TableCell>
+                    <TableCell>Reports To</TableCell>
                     <TableCell>Role</TableCell>
                     <TableCell>Status</TableCell>
                     <TableCell align="right">Actions</TableCell>
@@ -245,6 +282,14 @@ export function EmployeeListPage() {
                     <TableRow key={employee.id} hover>
                       <TableCell>{employee.fullName}</TableCell>
                       <TableCell>{employee.email}</TableCell>
+                      <TableCell>
+                        {employee.designationId
+                          ? (designationLabelById.get(employee.designationId) ?? "—")
+                          : "—"}
+                      </TableCell>
+                      <TableCell>
+                        {employee.managerId ? (managerNameById.get(employee.managerId) ?? "—") : "—"}
+                      </TableCell>
                       <TableCell>
                         <Chip
                           label={employee.role}

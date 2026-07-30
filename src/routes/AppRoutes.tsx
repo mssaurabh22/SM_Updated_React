@@ -5,10 +5,13 @@ import { AdminRoute } from "../auth/AdminRoute";
 import { TeamVisibilityRoute } from "../auth/TeamVisibilityRoute";
 import { Layout } from "../components/Layout";
 import { TodaysFollowUpsPage } from "../features/dashboard/TodaysFollowUpsPage";
+import { DashboardIndexRoute } from "../features/dashboard/DashboardIndexRoute";
 import { NotFoundPage } from "../components/NotFoundPage";
 import { MasterDataPage } from "../features/masters/MasterDataPage";
 import { DEFAULT_MASTER_DATA_TYPE } from "../features/masters/masterTypeConfig";
 import { EmployeeListPage } from "../features/employees/EmployeeListPage";
+import { OrgChartPage } from "../features/employees/OrgChartPage";
+import { MyTeamPage } from "../features/employees/MyTeamPage";
 import { LeadListPage } from "../features/leads/LeadListPage";
 import { LeadDetailPage } from "../features/leads/LeadDetailPage";
 import { LeadImportPage } from "../features/leads/LeadImportPage";
@@ -40,13 +43,15 @@ export function AppRoutes() {
 
       <Route element={<ProtectedRoute />}>
         <Route path="/app" element={<Layout />}>
-          <Route index element={<TodaysFollowUpsPage />} />
+          <Route index element={<DashboardIndexRoute />} />
+          <Route path="todays-follow-ups" element={<TodaysFollowUpsPage />} />
 
           <Route path="leads" element={<LeadListPage />} />
           <Route path="leads/:id" element={<LeadDetailPage />} />
 
           <Route path="activity" element={<ActivityPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
+          <Route path="my-team" element={<MyTeamPage />} />
 
           <Route path="settings" element={<SettingsPage />} />
 
@@ -62,6 +67,7 @@ export function AppRoutes() {
             />
             <Route path="masters/:type" element={<MasterDataPage />} />
             <Route path="employees" element={<EmployeeListPage />} />
+            <Route path="employees/org-chart" element={<OrgChartPage />} />
             <Route path="leads/import" element={<LeadImportPage />} />
           </Route>
 
