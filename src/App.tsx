@@ -6,6 +6,7 @@ import { AppThemeProvider } from "./theme/ThemeContext";
 import { AuthProvider } from "./auth/AuthContext";
 import { EntitlementProvider } from "./entitlement/EntitlementContext";
 import { AppRoutes } from "./routes/AppRoutes";
+import { PushNotificationBootstrap } from "./components/PushNotificationBootstrap";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -30,6 +31,7 @@ function App() {
           <EntitlementProvider>
             <AppThemeProvider>
               <LocalizationProvider dateAdapter={AdapterDayjs}>
+                <PushNotificationBootstrap />
                 <AppRoutes />
               </LocalizationProvider>
             </AppThemeProvider>

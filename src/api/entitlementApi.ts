@@ -7,6 +7,8 @@ export const FEATURE_ENTITLEMENTS = [
   "EMPLOYEE_LEAVE_MANAGEMENT",
   "TEAM_VISIBILITY",
   "INVENTORY_MANAGEMENT",
+  "PUSH_NOTIFICATIONS",
+  "CALENDAR_SYNC",
 ] as const;
 
 export type FeatureEntitlement = (typeof FEATURE_ENTITLEMENTS)[number];

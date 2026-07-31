@@ -32,6 +32,7 @@ import {
   useUpdateBillingProfile,
   useUploadLogo,
 } from "../../api/billingProfileApi";
+import { CalendarConnectionSection } from "./CalendarConnectionSection";
 
 type Mode = "LIGHT" | "DARK";
 type Density = "COMFORTABLE" | "COMPACT";
@@ -390,6 +391,7 @@ export function SettingsPage() {
   const isAdmin = role === "ADMIN";
   const { hasEntitlement } = useEntitlements();
   const hasInventoryManagement = hasEntitlement("INVENTORY_MANAGEMENT");
+  const hasCalendarSync = hasEntitlement("CALENDAR_SYNC");
   const queryClient = useQueryClient();
 
   const orgQuery = useOrganizationTheme();
@@ -702,6 +704,15 @@ export function SettingsPage() {
       </SectionCard>
 
       {hasInventoryManagement && <BillingProfileSection />}
+
+      {hasCalendarSync && (
+        <SectionCard
+          title="Calendar Sync"
+          description="Automatically add your scheduled visits to your own Google Calendar or Outlook."
+        >
+          <CalendarConnectionSection />
+        </SectionCard>
+      )}
     </Stack>
   );
 }

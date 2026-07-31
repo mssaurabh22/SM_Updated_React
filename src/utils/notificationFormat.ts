@@ -80,10 +80,12 @@ export function describeNotification(notification: Notification): string {
     }
     case "VISIT_MISSED": {
       const when = formatVisitWhen(payload?.visitDate, payload?.scheduledTime);
+      const who = payload?.employeeName;
       if (!payload?.companyName) return "A scheduled visit was missed.";
-      return when
-        ? `A visit for "${payload.companyName}" scheduled on ${when} was missed.`
-        : `A visit for "${payload.companyName}" was missed.`;
+      const whenSuffix = when ? ` scheduled on ${when}` : "";
+      return who
+        ? `A visit for "${payload.companyName}"${whenSuffix} was missed by ${who}.`
+        : `A visit for "${payload.companyName}"${whenSuffix} was missed.`;
     }
     case "LEAD_LAPSED": {
       const followupDate = payload?.nextFollowupDate ? dayjs(payload.nextFollowupDate) : null;

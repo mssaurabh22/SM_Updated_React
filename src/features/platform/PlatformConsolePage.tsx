@@ -42,6 +42,8 @@ const ENTITLEMENT_LABELS: Record<string, string> = {
   EMPLOYEE_LEAVE_MANAGEMENT: "Employee Leave Management",
   TEAM_VISIBILITY: "Manager Team Visibility (Leads/Visits/Reports)",
   INVENTORY_MANAGEMENT: "Inventory + Invoicing",
+  PUSH_NOTIFICATIONS: "Push Notifications (Firebase)",
+  CALENDAR_SYNC: "Calendar Sync (Google/Outlook)",
 };
 
 function KeyEntryScreen({ onSubmit, error }: { onSubmit: (key: string) => void; error?: string | null }) {
