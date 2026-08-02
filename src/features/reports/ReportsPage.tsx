@@ -5,8 +5,11 @@ import {
   Alert,
   Box,
   Button,
+  Chip,
   CircularProgress,
   Grid,
+  MenuItem,
+  Pagination,
   Paper,
   Stack,
   Table,
@@ -15,6 +18,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TextField,
   Typography,
   useTheme,
 } from "@mui/material";
@@ -36,13 +40,16 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { LEAD_STATUSES } from "../../api/leadsApi";
+import { LEAD_STATUSES, getLeads, useLeads } from "../../api/leadsApi";
 import type { LeadStatus } from "../../api/leadsApi";
 import {
   useConversionRate,
+  useInterestLevelStatusMatrix,
   usePipelineSummary,
+  useVisitsByType,
   useVisitsCompletedVsMissed,
 } from "../../api/reportingApi";
+import { useMasterData } from "../../api/masterDataApi";
 import { parseApiError } from "../../api/errorHelpers";
 import { LEAD_STATUS_COLORS, LEAD_STATUS_LABELS } from "../leads/leadStatusConfig";
 import { StatCard } from "../../components/StatCard";
@@ -330,6 +337,367 @@ function OwnerBreakdownSection() {
   );
 }
 
+const VISIT_TYPE_LABELS: Record<"FIELD" | "TELEPHONIC", string> = {
+  FIELD: "Field",
+  TELEPHONIC: "Telephonic",
+};
+
+function VisitsByTypeSection() {
+  const [dateFrom, setDateFrom] = useState<Dayjs | null>(null);
+  const [dateTo, setDateTo] = useState<Dayjs | null>(null);
+  const theme = useTheme();
+
+  const { data, isLoading, isError, error } = useVisitsByType(
+    dateFrom ? dateFrom.format("YYYY-MM-DD") : undefined,
+    dateTo ? dateTo.format("YYYY-MM-DD") : undefined,
+  );
+
+  const chartData = data
+    ? (["FIELD", "TELEPHONIC"] as const).map((type) => ({
+        name: VISIT_TYPE_LABELS[type],
+        value: data.byType[type] ?? 0,
+        key: type,
+      }))
+    : [];
+  const barColors: Record<string, string> = {
+    FIELD: theme.palette.primary.main,
+    TELEPHONIC: theme.palette.secondary.main,
+  };
+
+  return (
+    <Paper variant="outlined" sx={{ p: 3, height: "100%" }}>
+      <Typography variant="h6" gutterBottom>
+        Visits by Type
+      </Typography>
+
+      <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 2 }}>
+        <DatePicker
+          label="From"
+          value={dateFrom}
+          onChange={setDateFrom}
+          slotProps={{ textField: { fullWidth: true, size: "small" } }}
+        />
+        <DatePicker
+          label="To"
+          value={dateTo}
+          onChange={setDateTo}
+          slotProps={{ textField: { fullWidth: true, size: "small" } }}
+        />
+      </Stack>
+
+      {isLoading && <SectionLoading />}
+      {isError && <Alert severity="error">{parseApiError(error).message}</Alert>}
+
+      {data && data.total === 0 && (
+        <Typography color="text.secondary">No visits yet.</Typography>
+      )}
+
+      {data && data.total > 0 && (
+        <ResponsiveContainer width="100%" height={280}>
+          <BarChart data={chartData}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="name" />
+            <YAxis allowDecimals={false} />
+            <RechartsTooltip />
+            <Bar dataKey="value" name="Visits">
+              {chartData.map((entry) => (
+                <Cell key={entry.key} fill={barColors[entry.key]} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      )}
+    </Paper>
+  );
+}
+
+function InterestLevelStatusMatrixSection() {
+  const { data, isLoading, isError, error } = useInterestLevelStatusMatrix();
+
+  return (
+    <Paper variant="outlined" sx={{ p: 3 }}>
+      <Typography variant="h6" gutterBottom>
+        Interest Level x Status
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        How many leads at each interest level (Hot/Warm/Cold) sit in each pipeline stage.
+      </Typography>
+
+      {isLoading && <SectionLoading />}
+      {isError && <Alert severity="error">{parseApiError(error).message}</Alert>}
+
+      {data && (
+        <TableContainer sx={{ overflowX: "auto" }}>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Interest Level</TableCell>
+                {LEAD_STATUSES.map((status) => (
+                  <TableCell key={status} align="right">
+                    {LEAD_STATUS_LABELS[status]}
+                  </TableCell>
+                ))}
+                <TableCell align="right">Total</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {data.rows.map((row) => (
+                <TableRow key={row.interestLevel} hover>
+                  <TableCell>{row.interestLevel}</TableCell>
+                  {LEAD_STATUSES.map((status) => (
+                    <TableCell key={status} align="right">
+                      {row.byStatus[status] ?? 0}
+                    </TableCell>
+                  ))}
+                  <TableCell align="right">
+                    <strong>{row.total}</strong>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+    </Paper>
+  );
+}
+
+const LEADS_REPORT_PAGE_SIZE = 20;
+
+/**
+ * The Reports section's filterable Leads table - State/City/Product/Date filters alongside the
+ * existing Status filter, all pushed down to GET /leads (extended with stateId/cityId/
+ * productId/dateFrom/dateTo - see leadsApi.ts's GetLeadsParams), same owner-scoping rule
+ * (ADMIN unrestricted, an entitled manager sees their team) LeadService#list already enforces
+ * for every other consumer of that endpoint.
+ */
+function FilterableLeadsSection() {
+  const [page, setPage] = useState(0);
+  const [status, setStatus] = useState<LeadStatus | "">("");
+  const [stateId, setStateId] = useState("");
+  const [cityId, setCityId] = useState("");
+  const [productId, setProductId] = useState("");
+  const [dateFrom, setDateFrom] = useState<Dayjs | null>(null);
+  const [dateTo, setDateTo] = useState<Dayjs | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [exportLoading, setExportLoading] = useState(false);
+
+  const { data: states } = useMasterData("STATE");
+  const { data: cities } = useMasterData("CITY");
+  const { data: products } = useMasterData("PRODUCT");
+
+  const filterParams = {
+    status: status || undefined,
+    stateId: stateId || undefined,
+    cityId: cityId || undefined,
+    productId: productId || undefined,
+    dateFrom: dateFrom ? dateFrom.format("YYYY-MM-DD") : undefined,
+    dateTo: dateTo ? dateTo.format("YYYY-MM-DD") : undefined,
+  };
+
+  const { data, isLoading, isError, error } = useLeads({
+    ...filterParams,
+    page,
+    size: LEADS_REPORT_PAGE_SIZE,
+  });
+
+  const handleExport = async () => {
+    setExportError(null);
+    setExportLoading(true);
+    try {
+      const all = await getLeads({ ...filterParams, size: 1000 });
+      exportToCsv(`leads-${dayjs().format("YYYY-MM-DD")}.csv`, all.content, [
+        { label: "Company", value: (l) => l.companyName },
+        { label: "Contact Person", value: (l) => l.contactPerson },
+        { label: "Contact No", value: (l) => l.contactNo },
+        { label: "Status", value: (l) => LEAD_STATUS_LABELS[l.status] },
+        { label: "Created", value: (l) => dayjs(l.createdAt).format("YYYY-MM-DD") },
+      ]);
+    } catch (err) {
+      setExportError(parseApiError(err).message);
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
+  return (
+    <Paper variant="outlined" sx={{ p: 3 }}>
+      <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mb: 2 }}>
+        <Typography variant="h6">All Leads</Typography>
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<FileDownloadIcon />}
+          onClick={handleExport}
+          disabled={exportLoading || !data || data.totalElements === 0}
+        >
+          {exportLoading ? "Exporting..." : "Export CSV"}
+        </Button>
+      </Stack>
+
+      <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 2, flexWrap: "wrap" }}>
+        <TextField
+          select
+          label="Status"
+          size="small"
+          sx={{ minWidth: 160 }}
+          value={status}
+          onChange={(e) => {
+            setPage(0);
+            setStatus(e.target.value as LeadStatus | "");
+          }}
+        >
+          <MenuItem value="">All statuses</MenuItem>
+          {LEAD_STATUSES.map((s) => (
+            <MenuItem key={s} value={s}>
+              {LEAD_STATUS_LABELS[s]}
+            </MenuItem>
+          ))}
+        </TextField>
+
+        <TextField
+          select
+          label="State"
+          size="small"
+          sx={{ minWidth: 160 }}
+          value={stateId}
+          onChange={(e) => {
+            setPage(0);
+            setStateId(e.target.value);
+          }}
+        >
+          <MenuItem value="">All states</MenuItem>
+          {(states ?? []).map((s) => (
+            <MenuItem key={s.id} value={s.id}>
+              {s.label}
+            </MenuItem>
+          ))}
+        </TextField>
+
+        <TextField
+          select
+          label="City"
+          size="small"
+          sx={{ minWidth: 160 }}
+          value={cityId}
+          onChange={(e) => {
+            setPage(0);
+            setCityId(e.target.value);
+          }}
+        >
+          <MenuItem value="">All cities</MenuItem>
+          {(cities ?? []).map((c) => (
+            <MenuItem key={c.id} value={c.id}>
+              {c.label}
+            </MenuItem>
+          ))}
+        </TextField>
+
+        <TextField
+          select
+          label="Product"
+          size="small"
+          sx={{ minWidth: 160 }}
+          value={productId}
+          onChange={(e) => {
+            setPage(0);
+            setProductId(e.target.value);
+          }}
+        >
+          <MenuItem value="">All products</MenuItem>
+          {(products ?? []).map((p) => (
+            <MenuItem key={p.id} value={p.id}>
+              {p.label}
+            </MenuItem>
+          ))}
+        </TextField>
+
+        <DatePicker
+          label="Created from"
+          value={dateFrom}
+          onChange={(value) => {
+            setPage(0);
+            setDateFrom(value);
+          }}
+          slotProps={{ textField: { size: "small" } }}
+        />
+        <DatePicker
+          label="Created to"
+          value={dateTo}
+          onChange={(value) => {
+            setPage(0);
+            setDateTo(value);
+          }}
+          slotProps={{ textField: { size: "small" } }}
+        />
+      </Stack>
+
+      {exportError && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setExportError(null)}>
+          {exportError}
+        </Alert>
+      )}
+
+      {isLoading && <SectionLoading />}
+      {isError && <Alert severity="error">{parseApiError(error).message}</Alert>}
+
+      {data && (
+        <>
+          <TableContainer sx={{ overflowX: "auto" }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Company</TableCell>
+                  <TableCell>Contact</TableCell>
+                  <TableCell>Phone</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Created</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {data.content.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5} align="center">
+                      <Typography color="text.secondary" sx={{ py: 3 }}>
+                        No leads match these filters.
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                )}
+                {data.content.map((lead) => (
+                  <TableRow key={lead.id} hover>
+                    <TableCell>{lead.companyName}</TableCell>
+                    <TableCell>{lead.contactPerson}</TableCell>
+                    <TableCell>{lead.contactNo}</TableCell>
+                    <TableCell>
+                      <Chip
+                        size="small"
+                        label={LEAD_STATUS_LABELS[lead.status]}
+                        color={LEAD_STATUS_COLORS[lead.status]}
+                      />
+                    </TableCell>
+                    <TableCell>{dayjs(lead.createdAt).format("DD MMM YYYY")}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+
+          {data.totalPages > 1 && (
+            <Stack direction="row" sx={{ justifyContent: "center", mt: 2 }}>
+              <Pagination
+                count={data.totalPages}
+                page={page + 1}
+                onChange={(_, next) => setPage(next - 1)}
+              />
+            </Stack>
+          )}
+        </>
+      )}
+    </Paper>
+  );
+}
+
 /**
  * Admin-only reports/dashboard page (Phase 5): pipeline summary, conversion rate,
  * and visit completion charts, plus a per-salesperson breakdown table. Each section
@@ -353,8 +721,17 @@ export function ReportsPage() {
         <Grid size={12}>
           <VisitsCompletedVsMissedSection />
         </Grid>
+        <Grid size={{ xs: 12, md: 5 }}>
+          <VisitsByTypeSection />
+        </Grid>
+        <Grid size={{ xs: 12, md: 7 }}>
+          <InterestLevelStatusMatrixSection />
+        </Grid>
         <Grid size={12}>
           <OwnerBreakdownSection />
+        </Grid>
+        <Grid size={12}>
+          <FilterableLeadsSection />
         </Grid>
       </Grid>
     </Box>

@@ -129,3 +129,53 @@ export function useRevenue(enabled = true) {
     enabled,
   });
 }
+
+export type VisitType = "FIELD" | "TELEPHONIC";
+
+export interface VisitsByType {
+  byType: Record<VisitType, number>;
+  total: number;
+}
+
+export interface GetVisitsByTypeParams {
+  dateFrom?: string;
+  dateTo?: string;
+}
+
+export async function getVisitsByType(params: GetVisitsByTypeParams = {}): Promise<VisitsByType> {
+  const response = await axiosInstance.get<VisitsByType>("/reports/visits-by-type", { params });
+  return response.data;
+}
+
+export function useVisitsByType(dateFrom?: string, dateTo?: string) {
+  return useQuery({
+    queryKey: ["reports", "visits-by-type", dateFrom, dateTo],
+    queryFn: () => getVisitsByType({ dateFrom, dateTo }),
+  });
+}
+
+/** One row of the Interest Level x Status matrix - interestLevel is already resolved to a
+ * display label ("Hot"/"Warm"/"Cold"/"Not Set") by the backend. */
+export interface InterestLevelStatusRow {
+  interestLevel: string;
+  byStatus: Record<LeadStatus, number>;
+  total: number;
+}
+
+export interface InterestLevelStatusMatrix {
+  rows: InterestLevelStatusRow[];
+}
+
+export async function getInterestLevelStatusMatrix(): Promise<InterestLevelStatusMatrix> {
+  const response = await axiosInstance.get<InterestLevelStatusMatrix>(
+    "/reports/interest-level-status-matrix",
+  );
+  return response.data;
+}
+
+export function useInterestLevelStatusMatrix() {
+  return useQuery({
+    queryKey: ["reports", "interest-level-status-matrix"],
+    queryFn: () => getInterestLevelStatusMatrix(),
+  });
+}

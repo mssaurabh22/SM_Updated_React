@@ -74,6 +74,14 @@ export interface GetLeadsParams {
    * is a real query param so the "find an existing lead to log a visit against" picker can
    * reliably find a match regardless of how many leads exist. */
   search?: string;
+  /** Reports section's filterable Leads table - stateId/cityId/productId/dateFrom/dateTo.
+   * dateFrom/dateTo filter on the lead's createdAt (see LeadSpecifications#createdBetween on
+   * the backend). */
+  stateId?: string;
+  cityId?: string;
+  productId?: string;
+  dateFrom?: string;
+  dateTo?: string;
   page?: number;
   size?: number;
   sort?: string;
