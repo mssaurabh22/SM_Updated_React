@@ -193,7 +193,12 @@ function LogoUploadRow({ isAdmin, hasLogo }: { isAdmin: boolean; hasLogo: boolea
     try {
       await uploadMutation.mutateAsync(file);
     } catch (err) {
-      setError(parseApiError(err).message);
+      // The backend's top-level message is a generic "Validation failed" summary - the
+      // actually-useful, specific reason (e.g. "this file's content doesn't match PNG or
+      // JPEG") lives in fieldErrors. There's no per-field input to show it under here (it's
+      // a single file picker, not a multi-field form), so prefer it over the generic summary.
+      const parsed = parseApiError(err);
+      setError(parsed.fieldErrors[0]?.message ?? parsed.message);
     }
   };
 
