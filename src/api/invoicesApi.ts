@@ -117,6 +117,31 @@ export async function downloadInvoicePdf(id: string, invoiceNumber: string): Pro
   URL.revokeObjectURL(url);
 }
 
+/**
+ * Opens the invoice PDF inline in a new tab (the browser's own PDF viewer) instead of forcing
+ * a download - lets the user review it before deciding to download/print. The endpoint itself
+ * is identical to downloadInvoicePdf's (same bytes); only what the frontend does with the blob
+ * differs (window.open vs. an anchor's download attribute).
+ *
+ * previewWindow must be opened SYNCHRONOUSLY by the caller's click handler, before this async
+ * function's first await - opening a new window only counts as "opened by user gesture" while
+ * still inside that synchronous call stack, otherwise most browsers block it as a popup. This
+ * function then points that already-open (blank) tab at the fetched PDF once ready.
+ */
+export async function previewInvoicePdf(id: string, previewWindow: Window | null): Promise<void> {
+  const response = await axiosInstance.get(`/invoices/${id}/pdf`, {
+    responseType: "blob",
+  });
+  const url = URL.createObjectURL(response.data as Blob);
+  if (previewWindow) {
+    previewWindow.location.href = url;
+  }
+  // Revoked well after the tab has had time to load the PDF from the blob URL - not
+  // immediately (the new tab still needs it) and not never (would leak memory indefinitely
+  // across many previews in one session).
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
 export function useInvoices(params: GetInvoicesParams = {}) {
   return useQuery({
     queryKey: ["invoices", params],

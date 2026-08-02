@@ -19,8 +19,14 @@ import {
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
+import VisibilityIcon from "@mui/icons-material/Visibility";
 import type { InvoiceStatus } from "../../api/invoicesApi";
-import { downloadInvoicePdf, useInvoice, useUpdateInvoiceStatus } from "../../api/invoicesApi";
+import {
+  downloadInvoicePdf,
+  previewInvoicePdf,
+  useInvoice,
+  useUpdateInvoiceStatus,
+} from "../../api/invoicesApi";
 import { parseApiError } from "../../api/errorHelpers";
 
 const STATUS_COLORS: Record<InvoiceStatus, "success" | "warning"> = {
@@ -35,6 +41,8 @@ export function InvoiceDetailPage() {
   const updateStatusMutation = useUpdateInvoiceStatus();
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [previewing, setPreviewing] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
 
   if (isLoading) {
     return (
@@ -69,6 +77,22 @@ export function InvoiceDetailPage() {
     }
   };
 
+  const handlePreviewPdf = async () => {
+    setPreviewError(null);
+    setPreviewing(true);
+    // Opened synchronously, right here in the click handler - see previewInvoicePdf's javadoc
+    // comment for why this can't wait until after the fetch without risking a popup blocker.
+    const previewWindow = window.open("", "_blank");
+    try {
+      await previewInvoicePdf(invoice.id, previewWindow);
+    } catch (err) {
+      previewWindow?.close();
+      setPreviewError(parseApiError(err).message);
+    } finally {
+      setPreviewing(false);
+    }
+  };
+
   return (
     <Box>
       <Button startIcon={<ArrowBackIcon />} onClick={() => navigate("/app/invoices")} sx={{ mb: 2 }}>
@@ -84,6 +108,15 @@ export function InvoiceDetailPage() {
         </Box>
         <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
           <Chip label={invoice.status} color={STATUS_COLORS[invoice.status]} />
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<VisibilityIcon />}
+            onClick={handlePreviewPdf}
+            disabled={previewing}
+          >
+            {previewing ? "Opening..." : "Preview"}
+          </Button>
           <Button
             variant="outlined"
             size="small"
@@ -103,6 +136,12 @@ export function InvoiceDetailPage() {
           </Button>
         </Stack>
       </Stack>
+
+      {previewError && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setPreviewError(null)}>
+          {previewError}
+        </Alert>
+      )}
 
       {downloadError && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setDownloadError(null)}>
