@@ -179,3 +179,33 @@ export function useInterestLevelStatusMatrix() {
     queryFn: () => getInterestLevelStatusMatrix(),
   });
 }
+
+/** One row of GET /reports/team-progress - a read-only rollup of a single team member's
+ * current workload. leadCountsByStatus is always fully zero-seeded across every LeadStatus
+ * value, same convention as PipelineSummary#byStatus. lastActivityAt is null when this member
+ * has no activity_log entries at all yet. */
+export interface TeamMemberProgress {
+  employeeId: string;
+  employeeName: string;
+  leadCountsByStatus: Record<LeadStatus, number>;
+  totalLeads: number;
+  visitsDueToday: number;
+  visitsUpcoming: number;
+  lastActivityAt: string | null;
+}
+
+export interface TeamProgressResponse {
+  members: TeamMemberProgress[];
+}
+
+export async function getTeamProgress(): Promise<TeamProgressResponse> {
+  const response = await axiosInstance.get<TeamProgressResponse>("/reports/team-progress");
+  return response.data;
+}
+
+export function useTeamProgress() {
+  return useQuery({
+    queryKey: ["reports", "team-progress"],
+    queryFn: () => getTeamProgress(),
+  });
+}

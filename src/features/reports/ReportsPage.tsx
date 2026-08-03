@@ -46,9 +46,11 @@ import {
   useConversionRate,
   useInterestLevelStatusMatrix,
   usePipelineSummary,
+  useTeamProgress,
   useVisitsByType,
   useVisitsCompletedVsMissed,
 } from "../../api/reportingApi";
+import type { TeamMemberProgress } from "../../api/reportingApi";
 import { useMasterData } from "../../api/masterDataApi";
 import { parseApiError } from "../../api/errorHelpers";
 import { LEAD_STATUS_COLORS, LEAD_STATUS_LABELS } from "../leads/leadStatusConfig";
@@ -462,6 +464,120 @@ function InterestLevelStatusMatrixSection() {
   );
 }
 
+/**
+ * Read-only "who's doing what" rollup for a manager/admin overseeing a team - one row per
+ * team member (Admins see every other active employee; an entitled manager sees their
+ * subordinates - see ReportingService#resolveTeamMemberIds) with their lead counts by status,
+ * visits due today/in the next 7 days, and when they were last active in the system. No
+ * drill-down/edit actions here - purely a scan-the-team-at-a-glance view for now.
+ */
+function TeamProgressSection() {
+  const { data, isLoading, isError, error } = useTeamProgress();
+
+  const handleExport = () => {
+    if (!data) return;
+    exportToCsv(
+      `team-progress-${dayjs().format("YYYY-MM-DD")}.csv`,
+      data.members,
+      [
+        { label: "Team Member", value: (m) => m.employeeName },
+        { label: "Total Leads", value: (m) => m.totalLeads },
+        ...LEAD_STATUSES.map((status) => ({
+          label: LEAD_STATUS_LABELS[status],
+          value: (m: TeamMemberProgress) => m.leadCountsByStatus[status] ?? 0,
+        })),
+        { label: "Visits Due Today", value: (m) => m.visitsDueToday },
+        { label: "Visits Upcoming (7d)", value: (m) => m.visitsUpcoming },
+        {
+          label: "Last Activity",
+          value: (m) => (m.lastActivityAt ? dayjs(m.lastActivityAt).format("YYYY-MM-DD HH:mm") : ""),
+        },
+      ],
+    );
+  };
+
+  return (
+    <Paper variant="outlined" sx={{ p: 3 }}>
+      <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
+        <Box>
+          <Typography variant="h6" gutterBottom>
+            Team Progress
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Each team member's current lead pipeline, upcoming visits, and last activity.
+          </Typography>
+        </Box>
+        {data && data.members.length > 0 && (
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<FileDownloadIcon />}
+            onClick={handleExport}
+          >
+            Export CSV
+          </Button>
+        )}
+      </Stack>
+
+      {isLoading && <SectionLoading />}
+      {isError && <Alert severity="error">{parseApiError(error).message}</Alert>}
+
+      {data && data.members.length === 0 && (
+        <Typography color="text.secondary">No team members to show yet.</Typography>
+      )}
+
+      {data && data.members.length > 0 && (
+        <TableContainer sx={{ overflowX: "auto" }}>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Team Member</TableCell>
+                <TableCell align="right">Total Leads</TableCell>
+                {LEAD_STATUSES.map((status) => (
+                  <TableCell key={status} align="right">
+                    {LEAD_STATUS_LABELS[status]}
+                  </TableCell>
+                ))}
+                <TableCell align="right">Due Today</TableCell>
+                <TableCell align="right">Upcoming (7d)</TableCell>
+                <TableCell>Last Activity</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {data.members.map((member) => (
+                <TableRow key={member.employeeId} hover>
+                  <TableCell>{member.employeeName}</TableCell>
+                  <TableCell align="right">
+                    <strong>{member.totalLeads}</strong>
+                  </TableCell>
+                  {LEAD_STATUSES.map((status) => (
+                    <TableCell key={status} align="right">
+                      {member.leadCountsByStatus[status] ?? 0}
+                    </TableCell>
+                  ))}
+                  <TableCell align="right">
+                    {member.visitsDueToday > 0 ? (
+                      <Chip label={member.visitsDueToday} size="small" color="warning" />
+                    ) : (
+                      0
+                    )}
+                  </TableCell>
+                  <TableCell align="right">{member.visitsUpcoming}</TableCell>
+                  <TableCell>
+                    {member.lastActivityAt
+                      ? dayjs(member.lastActivityAt).format("DD MMM YYYY, HH:mm")
+                      : "No activity yet"}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+    </Paper>
+  );
+}
+
 const LEADS_REPORT_PAGE_SIZE = 20;
 
 /**
@@ -717,6 +833,9 @@ export function ReportsPage() {
         </Grid>
         <Grid size={{ xs: 12, md: 5 }}>
           <ConversionRateSection />
+        </Grid>
+        <Grid size={12}>
+          <TeamProgressSection />
         </Grid>
         <Grid size={12}>
           <VisitsCompletedVsMissedSection />
