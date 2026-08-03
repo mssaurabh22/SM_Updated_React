@@ -9,6 +9,7 @@ export interface EffectiveThemeSettings {
   primaryColor: string;
   mode: "light" | "dark";
   density: "comfortable" | "compact";
+  uiStyle: "standard" | "minimalist";
 }
 
 /**
@@ -20,6 +21,7 @@ export interface EffectiveThemeSettings {
  */
 export function createAppTheme(settings: EffectiveThemeSettings): Theme {
   const isCompact = settings.density === "compact";
+  const isMinimalist = settings.uiStyle === "minimalist";
 
   // NOTE: this MUI version's createTheme internals call Object.keys(components)
   // unconditionally, which throws if `components` is `undefined` — so this must
@@ -56,6 +58,58 @@ export function createAppTheme(settings: EffectiveThemeSettings): Theme {
             regular: {
               minHeight: 52,
             },
+          },
+        },
+      }
+    : {};
+
+  // "Minimalist" UI style (Settings > Theme): a flatter, lower-visual-noise look layered on
+  // top of the base/density component overrides below - no shadows, a plain left-border nav
+  // highlight instead of the default rounded/filled pill, lighter Chip/heading weights. Never
+  // touches palette colors (primary/secondary/mode) - those stay exactly as chosen, this is
+  // purely about reducing decoration, not re-theming hue.
+  const minimalistComponents = isMinimalist
+    ? {
+        MuiPaper: {
+          styleOverrides: {
+            elevation1: { boxShadow: "none" },
+          },
+        },
+        MuiCard: {
+          styleOverrides: {
+            root: { boxShadow: "none" },
+          },
+        },
+        MuiButton: {
+          defaultProps: {
+            disableElevation: true,
+          },
+        },
+        MuiChip: {
+          styleOverrides: {
+            root: { fontWeight: 400 },
+          },
+        },
+        MuiListItemButton: {
+          styleOverrides: {
+            root: ({ theme }: { theme: Theme }) => ({
+              borderRadius: 0,
+              marginLeft: 0,
+              marginRight: 0,
+              width: "100%",
+              "&.Mui-selected": {
+                backgroundColor: "transparent",
+                color: theme.palette.primary.main,
+                borderLeft: `3px solid ${theme.palette.primary.main}`,
+                paddingLeft: `calc(${theme.spacing(2)} - 3px)`,
+                "& .MuiListItemIcon-root": {
+                  color: theme.palette.primary.main,
+                },
+                "&:hover": {
+                  backgroundColor: theme.palette.action.hover,
+                },
+              },
+            }),
           },
         },
       }
@@ -164,11 +218,16 @@ export function createAppTheme(settings: EffectiveThemeSettings): Theme {
     },
   };
 
-  // Density overrides are applied per-component on top of the base ones, so
-  // compact mode's defaultProps (which base doesn't set) merge in rather than
-  // clobbering the base styleOverrides for the same component key.
+  // Density and minimalist overrides are applied per-component on top of the base ones, so
+  // each layer's defaultProps/styleOverrides (which an earlier layer may not set) merge in
+  // rather than clobbering an earlier layer's keys for the same component. Minimalist is
+  // applied last so it wins over density/base for any component key both touch (e.g.
+  // MuiListItemButton, MuiChip).
   const components: Record<string, unknown> = { ...baseComponents };
   for (const [key, value] of Object.entries(densityComponents)) {
+    components[key] = { ...(components[key] as object | undefined), ...value };
+  }
+  for (const [key, value] of Object.entries(minimalistComponents)) {
     components[key] = { ...(components[key] as object | undefined), ...value };
   }
 
@@ -195,22 +254,22 @@ export function createAppTheme(settings: EffectiveThemeSettings): Theme {
         settings.mode === "dark" ? "rgba(255, 255, 255, 0.09)" : "rgba(17, 24, 39, 0.08)",
     },
     shape: {
-      borderRadius: 12,
+      borderRadius: isMinimalist ? 4 : 12,
     },
     typography: {
       fontFamily:
         '"Roboto", "Helvetica Neue", "Helvetica", "Arial", sans-serif',
       h5: {
-        fontWeight: 600,
+        fontWeight: isMinimalist ? 500 : 600,
       },
       h6: {
-        fontWeight: 600,
+        fontWeight: isMinimalist ? 500 : 600,
       },
       subtitle1: {
-        fontWeight: 500,
+        fontWeight: isMinimalist ? 400 : 500,
       },
       subtitle2: {
-        fontWeight: 500,
+        fontWeight: isMinimalist ? 400 : 500,
       },
     },
     components,

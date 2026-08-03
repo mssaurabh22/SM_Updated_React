@@ -17,6 +17,9 @@ export interface ThemeSettings {
   primaryColor?: string | null;
   mode?: string | null;
   density?: string | null;
+  /** "STANDARD" (default) or "MINIMALIST" - a flatter, lower-visual-noise app-wide look
+   * (no shadows, thinner nav highlight, lighter heading weights) - see createAppTheme.ts. */
+  uiStyle?: string | null;
 }
 
 // Theme rarely changes, so we don't want to refetch aggressively (no window-focus

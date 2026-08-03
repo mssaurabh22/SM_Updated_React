@@ -36,12 +36,14 @@ import { CalendarConnectionSection } from "./CalendarConnectionSection";
 
 type Mode = "LIGHT" | "DARK";
 type Density = "COMFORTABLE" | "COMPACT";
+type UiStyle = "STANDARD" | "MINIMALIST";
 
 /** Hardcoded fallbacks — must match createAppTheme.ts / ThemeContext.tsx exactly. */
 const HARDCODED_DEFAULTS = {
   primaryColor: "#6366f1",
   mode: "DARK" as Mode,
   density: "COMFORTABLE" as Density,
+  uiStyle: "STANDARD" as UiStyle,
 };
 
 /** How long to wait after the last edit before actually saving to the server.
@@ -411,12 +413,14 @@ export function SettingsPage() {
     primaryColor: string;
     mode: Mode;
     density: Density;
+    uiStyle: UiStyle;
   }>(HARDCODED_DEFAULTS);
 
   const [prefDraft, setPrefDraft] = useState<ThemeSettings>({
     primaryColor: null,
     mode: null,
     density: null,
+    uiStyle: null,
   });
 
   // Last server-confirmed values, used to roll back an optimistic preview if the
@@ -436,6 +440,8 @@ export function SettingsPage() {
         mode: (orgQuery.data.mode as Mode | undefined) ?? HARDCODED_DEFAULTS.mode,
         density:
           (orgQuery.data.density as Density | undefined) ?? HARDCODED_DEFAULTS.density,
+        uiStyle:
+          (orgQuery.data.uiStyle as UiStyle | undefined) ?? HARDCODED_DEFAULTS.uiStyle,
       });
     }
   }, [orgQuery.data]);
@@ -481,6 +487,8 @@ export function SettingsPage() {
               mode: (fallback.mode as Mode | undefined) ?? HARDCODED_DEFAULTS.mode,
               density:
                 (fallback.density as Density | undefined) ?? HARDCODED_DEFAULTS.density,
+              uiStyle:
+                (fallback.uiStyle as UiStyle | undefined) ?? HARDCODED_DEFAULTS.uiStyle,
             });
           }
         },
@@ -518,7 +526,7 @@ export function SettingsPage() {
 
   /** Reset actions bypass the debounce — they're a single discrete action, not
    * a continuous drag, so there's no reason to wait before saving. */
-  function resetPrefField(field: "primaryColor" | "mode" | "density") {
+  function resetPrefField(field: "primaryColor" | "mode" | "density" | "uiStyle") {
     if (prefSaveTimer.current) clearTimeout(prefSaveTimer.current);
     setPrefError(null);
     const nextDraft = { ...prefDraft, [field]: null };
@@ -550,10 +558,13 @@ export function SettingsPage() {
   const orgMode = (orgQuery.data?.mode as Mode | undefined) ?? HARDCODED_DEFAULTS.mode;
   const orgDensity =
     (orgQuery.data?.density as Density | undefined) ?? HARDCODED_DEFAULTS.density;
+  const orgUiStyle =
+    (orgQuery.data?.uiStyle as UiStyle | undefined) ?? HARDCODED_DEFAULTS.uiStyle;
 
   const prefColor = prefDraft.primaryColor ?? orgPrimaryColor;
   const prefMode = (prefDraft.mode as Mode | null) ?? orgMode;
   const prefDensity = (prefDraft.density as Density | null) ?? orgDensity;
+  const prefUiStyle = (prefDraft.uiStyle as UiStyle | null) ?? orgUiStyle;
 
   return (
     <Stack spacing={3} sx={{ maxWidth: 640 }}>
@@ -609,6 +620,22 @@ export function SettingsPage() {
                 >
                   <ToggleButton value="COMFORTABLE">Comfortable</ToggleButton>
                   <ToggleButton value="COMPACT">Compact</ToggleButton>
+                </ToggleButtonGroup>
+              </Stack>
+
+              <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
+                <Typography sx={{ minWidth: 140 }}>UI style</Typography>
+                <ToggleButtonGroup
+                  size="small"
+                  exclusive
+                  value={orgDraft.uiStyle}
+                  disabled={!isAdmin}
+                  onChange={(_, value: UiStyle | null) =>
+                    value && commitOrgChange({ uiStyle: value })
+                  }
+                >
+                  <ToggleButton value="STANDARD">Standard</ToggleButton>
+                  <ToggleButton value="MINIMALIST">Minimalist</ToggleButton>
                 </ToggleButtonGroup>
               </Stack>
             </>
@@ -701,6 +728,35 @@ export function SettingsPage() {
                 <ResetButton
                   onClick={() => resetPrefField("density")}
                   disabled={prefDraft.density == null}
+                />
+              </Stack>
+
+              <Stack
+                direction="row"
+                sx={{
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  flexWrap: "wrap",
+                  rowGap: 1,
+                }}
+              >
+                <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
+                  <Typography sx={{ minWidth: 140 }}>UI style</Typography>
+                  <ToggleButtonGroup
+                    size="small"
+                    exclusive
+                    value={prefUiStyle}
+                    onChange={(_, value: UiStyle | null) =>
+                      value && commitPrefChange({ uiStyle: value })
+                    }
+                  >
+                    <ToggleButton value="STANDARD">Standard</ToggleButton>
+                    <ToggleButton value="MINIMALIST">Minimalist</ToggleButton>
+                  </ToggleButtonGroup>
+                </Stack>
+                <ResetButton
+                  onClick={() => resetPrefField("uiStyle")}
+                  disabled={prefDraft.uiStyle == null}
                 />
               </Stack>
             </>

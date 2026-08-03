@@ -20,6 +20,7 @@ const HARDCODED_DEFAULTS: EffectiveThemeSettings = {
   primaryColor: "#6366f1",
   mode: "dark",
   density: "comfortable",
+  uiStyle: "standard",
 };
 
 function toMuiMode(mode: string | null | undefined): "light" | "dark" {
@@ -30,6 +31,12 @@ function toMuiDensity(
   density: string | null | undefined,
 ): "comfortable" | "compact" {
   return density?.toUpperCase() === "COMPACT" ? "compact" : "comfortable";
+}
+
+function toMuiUiStyle(
+  uiStyle: string | null | undefined,
+): "standard" | "minimalist" {
+  return uiStyle?.toUpperCase() === "MINIMALIST" ? "minimalist" : "standard";
 }
 
 /**
@@ -64,11 +71,17 @@ export function resolveEffectiveTheme(
     : orgTheme?.density
       ? toMuiDensity(orgTheme.density)
       : HARDCODED_DEFAULTS.density;
+  const uiStyle = userPreference?.uiStyle
+    ? toMuiUiStyle(userPreference.uiStyle)
+    : orgTheme?.uiStyle
+      ? toMuiUiStyle(orgTheme.uiStyle)
+      : HARDCODED_DEFAULTS.uiStyle;
 
   return {
     primaryColor,
     mode,
     density,
+    uiStyle,
   };
 }
 
