@@ -18,6 +18,7 @@ import { LeadImportPage } from "../features/leads/LeadImportPage";
 import { ActivityPage } from "../features/activity/ActivityPage";
 import { NotificationsPage } from "../features/notifications/NotificationsPage";
 import { ReportsPage } from "../features/reports/ReportsPage";
+import { TeamMemberDetailPage } from "../features/reports/TeamMemberDetailPage";
 import { SettingsPage } from "../features/settings/SettingsPage";
 import { RequireEntitlementRoute } from "../entitlement/RequireEntitlementRoute";
 import { MyLeaveRequestsPage } from "../features/leave/MyLeaveRequestsPage";
@@ -73,6 +74,7 @@ export function AppRoutes() {
 
           <Route element={<TeamVisibilityRoute />}>
             <Route path="reports" element={<ReportsPage />} />
+            <Route path="team/:employeeId" element={<TeamMemberDetailPage />} />
           </Route>
 
           <Route element={<RequireEntitlementRoute feature="EMPLOYEE_LEAVE_MANAGEMENT" />}>

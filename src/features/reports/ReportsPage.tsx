@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
 import type { Dayjs } from "dayjs";
 import {
@@ -472,6 +473,7 @@ function InterestLevelStatusMatrixSection() {
  * drill-down/edit actions here - purely a scan-the-team-at-a-glance view for now.
  */
 function TeamProgressSection() {
+  const navigate = useNavigate();
   const { data, isLoading, isError, error } = useTeamProgress();
 
   const handleExport = () => {
@@ -545,7 +547,12 @@ function TeamProgressSection() {
             </TableHead>
             <TableBody>
               {data.members.map((member) => (
-                <TableRow key={member.employeeId} hover>
+                <TableRow
+                  key={member.employeeId}
+                  hover
+                  sx={{ cursor: "pointer" }}
+                  onClick={() => navigate(`/app/team/${member.employeeId}`)}
+                >
                   <TableCell>{member.employeeName}</TableCell>
                   <TableCell align="right">
                     <strong>{member.totalLeads}</strong>
