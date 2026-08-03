@@ -71,7 +71,7 @@ const VISIT_TYPE_LABELS: Record<Visit["visitType"], string> = {
  * or down in any order), so a real funnel chart distorts into a bowtie/diamond shape whenever
  * a later stage happens to have more leads than an earlier one.  A bar chart shows exactly the
  * same information without that failure mode. */
-const PIPELINE_STATUSES: LeadStatus[] = ["NEW", "CONTACTED", "NEGOTIATION", "CLOSED_WON"];
+const PIPELINE_STATUSES: LeadStatus[] = ["NEW", "INTERESTED", "CONTACTED", "NEGOTIATION", "CLOSED_WON"];
 
 const CHART_PALETTE = ["#6366f1", "#22c55e", "#f59e0b", "#ef4444", "#06b6d4", "#a855f7", "#ec4899"];
 

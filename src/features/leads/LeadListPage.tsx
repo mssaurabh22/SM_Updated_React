@@ -330,9 +330,14 @@ export function LeadListPage() {
                         )}
                         {canFilterByOwner && (
                           <Chip
-                            label={ownerMap.get(lead.ownerId) ?? "Unassigned"}
+                            label={
+                              lead.status === "LOST"
+                                ? "Unassigned – Lost"
+                                : (ownerMap.get(lead.ownerId) ?? "Unassigned")
+                            }
                             size="small"
                             variant="outlined"
+                            color={lead.status === "LOST" ? "error" : "default"}
                           />
                         )}
                       </Stack>
@@ -392,7 +397,11 @@ export function LeadListPage() {
                       <TableCell>{lead.nextFollowupDate ?? "—"}</TableCell>
                       {canFilterByOwner && (
                         <TableCell>
-                          {ownerMap.get(lead.ownerId) ?? lead.ownerId}
+                          {lead.status === "LOST" ? (
+                            <Chip label="Unassigned – Lost" size="small" color="error" variant="outlined" />
+                          ) : (
+                            (ownerMap.get(lead.ownerId) ?? lead.ownerId)
+                          )}
                         </TableCell>
                       )}
                     </TableRow>

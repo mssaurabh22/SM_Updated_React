@@ -106,15 +106,12 @@ const schema = z
     designationOther: z.string().nullable(),
     email: z.string(),
     address: z.string(),
-    requirements: z.string(),
     productIds: z.array(z.string()),
-    productsOther: z.string(),
     interestLevelId: z.string().nullable(),
     interestLevelOther: z.string().nullable(),
     currentProductSolution: z.string(),
     budgetRange: z.string(),
     decisionMakerIdentified: z.boolean(),
-    objections: z.string(),
     remarks: z.string(),
     nextFollowupDate: z.custom<Dayjs | null>(),
     expectedCloseDate: z.custom<Dayjs | null>(),
@@ -154,15 +151,12 @@ const emptyValues: FormValues = {
   designationOther: null,
   email: "",
   address: "",
-  requirements: "",
   productIds: [],
-  productsOther: "",
   interestLevelId: null,
   interestLevelOther: null,
   currentProductSolution: "",
   budgetRange: "",
   decisionMakerIdentified: false,
-  objections: "",
   remarks: "",
   nextFollowupDate: null,
   expectedCloseDate: null,
@@ -263,15 +257,12 @@ export function LeadCreateDialog({ open, onClose }: LeadCreateDialogProps) {
         designationOther: values.designationOther ?? undefined,
         email: values.email.trim() || undefined,
         address: values.address.trim() || undefined,
-        requirements: values.requirements.trim() || undefined,
         productIds: values.productIds.length > 0 ? values.productIds : undefined,
-        productsOther: values.productsOther.trim() || undefined,
         interestLevelId: values.interestLevelId ?? undefined,
         interestLevelOther: values.interestLevelOther ?? undefined,
         currentProductSolution: values.currentProductSolution.trim() || undefined,
         budgetRange: values.budgetRange.trim() || undefined,
         decisionMakerIdentified: values.decisionMakerIdentified,
-        objections: values.objections.trim() || undefined,
         remarks: values.remarks.trim() || undefined,
         nextFollowupDate: values.nextFollowupDate
           ? values.nextFollowupDate.format("YYYY-MM-DD")
@@ -323,7 +314,14 @@ export function LeadCreateDialog({ open, onClose }: LeadCreateDialogProps) {
       <DialogTitle>Add Lead</DialogTitle>
       <Stack
         component="form"
-        onSubmit={form.handleSubmit(onSubmit)}
+        onSubmit={form.handleSubmit(onSubmit, (errors) => {
+          // Industry/Lead Source are backend-required but now live inside the collapsed
+          // Additional Details accordion - auto-expand it so a validation error there is
+          // never hidden from view.
+          if (errors.industryId || errors.leadSourceId) {
+            setOptionalExpanded(true);
+          }
+        })}
         noValidate
       >
         <DialogContent>
@@ -404,12 +402,44 @@ export function LeadCreateDialog({ open, onClose }: LeadCreateDialogProps) {
               error={!!form.formState.errors.companyName}
               helperText={form.formState.errors.companyName?.message}
             />
+            <Controller
+              control={form.control}
+              name="businessTypeId"
+              render={({ field }) => (
+                <CreatableMasterAutocomplete
+                  label="Business type"
+                  options={businessTypeOptions}
+                  idValue={field.value}
+                  otherValue={form.watch("businessTypeOther")}
+                  onChange={({ id, other }) => {
+                    field.onChange(id);
+                    form.setValue("businessTypeOther", other);
+                  }}
+                />
+              )}
+            />
             <TextField
               label="Contact person"
               fullWidth
               {...form.register("contactPerson")}
               error={!!form.formState.errors.contactPerson}
               helperText={form.formState.errors.contactPerson?.message}
+            />
+            <Controller
+              control={form.control}
+              name="designationId"
+              render={({ field }) => (
+                <CreatableMasterAutocomplete
+                  label="Designation"
+                  options={designationOptions}
+                  idValue={field.value}
+                  otherValue={form.watch("designationOther")}
+                  onChange={({ id, other }) => {
+                    field.onChange(id);
+                    form.setValue("designationOther", other);
+                  }}
+                />
+              )}
             />
             <TextField
               label="Contact number"
@@ -463,39 +493,81 @@ export function LeadCreateDialog({ open, onClose }: LeadCreateDialogProps) {
             />
             <Controller
               control={form.control}
-              name="leadSourceId"
+              name="productIds"
               render={({ field }) => (
-                <CreatableMasterAutocomplete
-                  label="Lead source"
-                  options={leadSourceOptions}
-                  idValue={field.value}
-                  otherValue={form.watch("leadSourceOther")}
-                  onChange={({ id, other }) => {
-                    field.onChange(id);
-                    form.setValue("leadSourceOther", other);
-                  }}
-                  error={!!form.formState.errors.leadSourceId}
-                  helperText={form.formState.errors.leadSourceId?.message}
+                <Autocomplete
+                  multiple
+                  options={productOptions}
+                  getOptionLabel={(option) => option.label}
+                  isOptionEqualToValue={(option, value) => option.id === value.id}
+                  value={productOptions.filter((p) => (field.value ?? []).includes(p.id))}
+                  onChange={(_, selected) => field.onChange(selected.map((s) => s.id))}
+                  renderInput={(params) => <TextField {...params} label="Products" />}
                 />
               )}
             />
             <Controller
               control={form.control}
-              name="industryId"
+              name="interestLevelId"
               render={({ field }) => (
                 <CreatableMasterAutocomplete
-                  label="Industry"
-                  options={industryOptions}
+                  label="Interest level"
+                  options={interestLevelOptions}
                   idValue={field.value}
-                  otherValue={form.watch("industryOther")}
+                  otherValue={form.watch("interestLevelOther")}
                   onChange={({ id, other }) => {
                     field.onChange(id);
-                    form.setValue("industryOther", other);
+                    form.setValue("interestLevelOther", other);
                   }}
-                  error={!!form.formState.errors.industryId}
-                  helperText={form.formState.errors.industryId?.message}
                 />
               )}
+            />
+            <Controller
+              control={form.control}
+              name="decisionMakerIdentified"
+              render={({ field }) => (
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={field.value}
+                      onChange={(e) => field.onChange(e.target.checked)}
+                    />
+                  }
+                  label="Decision maker identified"
+                />
+              )}
+            />
+            <Controller
+              control={form.control}
+              name="nextFollowupDate"
+              render={({ field }) => (
+                <DatePicker
+                  label="Next follow-up date"
+                  value={field.value}
+                  onChange={(value) => field.onChange(value)}
+                  minDate={dayjs()}
+                  slotProps={{ textField: { fullWidth: true } }}
+                />
+              )}
+            />
+            <Controller
+              control={form.control}
+              name="expectedCloseDate"
+              render={({ field }) => (
+                <DatePicker
+                  label="Expected close date"
+                  value={field.value}
+                  onChange={(value) => field.onChange(value)}
+                  slotProps={{ textField: { fullWidth: true } }}
+                />
+              )}
+            />
+            <TextField
+              label="Remarks"
+              fullWidth
+              multiline
+              minRows={2}
+              {...form.register("remarks")}
             />
 
             <Accordion
@@ -515,17 +587,39 @@ export function LeadCreateDialog({ open, onClose }: LeadCreateDialogProps) {
                   <Grid size={{ xs: 12, sm: 6 }}>
                     <Controller
                       control={form.control}
-                      name="businessTypeId"
+                      name="industryId"
                       render={({ field }) => (
                         <CreatableMasterAutocomplete
-                          label="Business type"
-                          options={businessTypeOptions}
+                          label="Industry"
+                          options={industryOptions}
                           idValue={field.value}
-                          otherValue={form.watch("businessTypeOther")}
+                          otherValue={form.watch("industryOther")}
                           onChange={({ id, other }) => {
                             field.onChange(id);
-                            form.setValue("businessTypeOther", other);
+                            form.setValue("industryOther", other);
                           }}
+                          error={!!form.formState.errors.industryId}
+                          helperText={form.formState.errors.industryId?.message}
+                        />
+                      )}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <Controller
+                      control={form.control}
+                      name="leadSourceId"
+                      render={({ field }) => (
+                        <CreatableMasterAutocomplete
+                          label="Lead source"
+                          options={leadSourceOptions}
+                          idValue={field.value}
+                          otherValue={form.watch("leadSourceOther")}
+                          onChange={({ id, other }) => {
+                            field.onChange(id);
+                            form.setValue("leadSourceOther", other);
+                          }}
+                          error={!!form.formState.errors.leadSourceId}
+                          helperText={form.formState.errors.leadSourceId?.message}
                         />
                       )}
                     />
@@ -536,24 +630,6 @@ export function LeadCreateDialog({ open, onClose }: LeadCreateDialogProps) {
                       type="number"
                       fullWidth
                       {...form.register("turnover")}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <Controller
-                      control={form.control}
-                      name="designationId"
-                      render={({ field }) => (
-                        <CreatableMasterAutocomplete
-                          label="Designation"
-                          options={designationOptions}
-                          idValue={field.value}
-                          otherValue={form.watch("designationOther")}
-                          onChange={({ id, other }) => {
-                            field.onChange(id);
-                            form.setValue("designationOther", other);
-                          }}
-                        />
-                      )}
                     />
                   </Grid>
                   <Grid size={{ xs: 12, sm: 6 }}>
@@ -569,58 +645,7 @@ export function LeadCreateDialog({ open, onClose }: LeadCreateDialogProps) {
                       {...form.register("address")}
                     />
                   </Grid>
-                  <Grid size={12}>
-                    <TextField
-                      label="Requirements"
-                      fullWidth
-                      multiline
-                      minRows={2}
-                      {...form.register("requirements")}
-                    />
-                  </Grid>
 
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <Controller
-                      control={form.control}
-                      name="productIds"
-                      render={({ field }) => (
-                        <Autocomplete
-                          multiple
-                          options={productOptions}
-                          getOptionLabel={(option) => option.label}
-                          isOptionEqualToValue={(option, value) => option.id === value.id}
-                          value={productOptions.filter((p) => (field.value ?? []).includes(p.id))}
-                          onChange={(_, selected) => field.onChange(selected.map((s) => s.id))}
-                          renderInput={(params) => <TextField {...params} label="Products" />}
-                        />
-                      )}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <TextField
-                      label="Other products (not in the list above)"
-                      fullWidth
-                      {...form.register("productsOther")}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <Controller
-                      control={form.control}
-                      name="interestLevelId"
-                      render={({ field }) => (
-                        <CreatableMasterAutocomplete
-                          label="Interest level"
-                          options={interestLevelOptions}
-                          idValue={field.value}
-                          otherValue={form.watch("interestLevelOther")}
-                          onChange={({ id, other }) => {
-                            field.onChange(id);
-                            form.setValue("interestLevelOther", other);
-                          }}
-                        />
-                      )}
-                    />
-                  </Grid>
                   <Grid size={{ xs: 12, sm: 6 }}>
                     <TextField
                       label="Current product / solution"
@@ -636,71 +661,11 @@ export function LeadCreateDialog({ open, onClose }: LeadCreateDialogProps) {
                     />
                   </Grid>
 
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <Controller
-                      control={form.control}
-                      name="nextFollowupDate"
-                      render={({ field }) => (
-                        <DatePicker
-                          label="Next follow-up date"
-                          value={field.value}
-                          onChange={(value) => field.onChange(value)}
-                          minDate={dayjs()}
-                          slotProps={{ textField: { fullWidth: true } }}
-                        />
-                      )}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <Controller
-                      control={form.control}
-                      name="expectedCloseDate"
-                      render={({ field }) => (
-                        <DatePicker
-                          label="Expected close date"
-                          value={field.value}
-                          onChange={(value) => field.onChange(value)}
-                          slotProps={{ textField: { fullWidth: true } }}
-                        />
-                      )}
-                    />
-                  </Grid>
-
                   <Grid size={12}>
-                    <Controller
-                      control={form.control}
-                      name="decisionMakerIdentified"
-                      render={({ field }) => (
-                        <FormControlLabel
-                          control={
-                            <Checkbox
-                              checked={field.value}
-                              onChange={(e) => field.onChange(e.target.checked)}
-                            />
-                          }
-                          label="Decision maker identified"
-                        />
-                      )}
-                    />
-                  </Grid>
-
-                  <Grid size={12}>
-                    <TextField
-                      label="Objections"
-                      fullWidth
-                      multiline
-                      minRows={2}
-                      {...form.register("objections")}
-                    />
-                  </Grid>
-                  <Grid size={12}>
-                    <TextField
-                      label="Remarks"
-                      fullWidth
-                      multiline
-                      minRows={2}
-                      {...form.register("remarks")}
-                    />
+                    <FormHelperText>
+                      Attachments (business card, brochure, etc.) can be added from this
+                      lead's detail page once it's created.
+                    </FormHelperText>
                   </Grid>
                 </Grid>
               </AccordionDetails>

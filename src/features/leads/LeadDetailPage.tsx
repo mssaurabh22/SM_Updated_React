@@ -49,6 +49,7 @@ import { ACTIVITY_TYPES, useActivity } from "../../api/activityApi";
 import { parseApiError } from "../../api/errorHelpers";
 import { CreatableMasterAutocomplete } from "../../components/CreatableMasterAutocomplete";
 import { LEAD_STATUS_COLORS, LEAD_STATUS_LABELS } from "./leadStatusConfig";
+import { LeadAttachmentsSection } from "./LeadAttachmentsSection";
 import { LeadLostReasonDialog } from "./LeadLostReasonDialog";
 import { ReassignLeadDialog } from "./ReassignLeadDialog";
 import { VisitFormDialog } from "../visits/VisitFormDialog";
@@ -80,15 +81,12 @@ const editSchema = z.object({
   designationOther: z.string().nullable(),
   email: z.string(),
   address: z.string(),
-  requirements: z.string(),
   productIds: z.array(z.string()),
-  productsOther: z.string(),
   interestLevelId: z.string().nullable(),
   interestLevelOther: z.string().nullable(),
   currentProductSolution: z.string(),
   budgetRange: z.string(),
   decisionMakerIdentified: z.boolean(),
-  objections: z.string(),
   remarks: z.string(),
   nextFollowupDate: z.custom<Dayjs | null>(),
   expectedCloseDate: z.custom<Dayjs | null>(),
@@ -134,15 +132,12 @@ const emptyValues: EditFormValues = {
   designationOther: null,
   email: "",
   address: "",
-  requirements: "",
   productIds: [],
-  productsOther: "",
   interestLevelId: null,
   interestLevelOther: null,
   currentProductSolution: "",
   budgetRange: "",
   decisionMakerIdentified: false,
-  objections: "",
   remarks: "",
   nextFollowupDate: null,
   expectedCloseDate: null,
@@ -265,15 +260,12 @@ export function LeadDetailPage() {
       designationOther: lead.designationOther,
       email: lead.email ?? "",
       address: lead.address ?? "",
-      requirements: lead.requirements ?? "",
       productIds: lead.productIds ?? [],
-      productsOther: lead.productsOther ?? "",
       interestLevelId: lead.interestLevelId,
       interestLevelOther: lead.interestLevelOther,
       currentProductSolution: lead.currentProductSolution ?? "",
       budgetRange: lead.budgetRange ?? "",
       decisionMakerIdentified: lead.decisionMakerIdentified ?? false,
-      objections: lead.objections ?? "",
       remarks: lead.remarks ?? "",
       nextFollowupDate: lead.nextFollowupDate ? dayjs(lead.nextFollowupDate) : null,
       expectedCloseDate: lead.expectedCloseDate
@@ -294,6 +286,15 @@ export function LeadDetailPage() {
 
   const cityOptionsForState = (stateId: string | null) =>
     stateId ? cityOptions.filter((c) => c.parentId === stateId) : cityOptions;
+
+  // Mirrors the backend's LeadService#isHotInterestLevel gating: the full status dropdown is
+  // only shown while Interest Level is Hot; otherwise the lead is locked to Interested (Lost
+  // stays reachable via its own always-visible action, see the header below). Optional-chained
+  // since `lead` is still undefined on the very first render, before the isLoading/isError
+  // guards below return early.
+  const isHotInterestLevel = lead?.interestLevelId
+    ? (interestLevelOptions.find((i) => i.id === lead.interestLevelId)?.code ?? "").toUpperCase() === "HOT"
+    : false;
 
   const isSaving = updateMutation.isPending;
 
@@ -319,15 +320,12 @@ export function LeadDetailPage() {
       designationOther: values.designationOther ?? undefined,
       email: values.email.trim() || undefined,
       address: values.address.trim() || undefined,
-      requirements: values.requirements.trim() || undefined,
       productIds: values.productIds,
-      productsOther: values.productsOther.trim() || undefined,
       interestLevelId: values.interestLevelId ?? undefined,
       interestLevelOther: values.interestLevelOther ?? undefined,
       currentProductSolution: values.currentProductSolution.trim() || undefined,
       budgetRange: values.budgetRange.trim() || undefined,
       decisionMakerIdentified: values.decisionMakerIdentified,
-      objections: values.objections.trim() || undefined,
       remarks: values.remarks.trim() || undefined,
       nextFollowupDate: values.nextFollowupDate
         ? values.nextFollowupDate.format("YYYY-MM-DD")
@@ -435,6 +433,7 @@ export function LeadDetailPage() {
             <Typography variant="body2" color="text.secondary">
               Created {dayjs(lead.createdAt).format("DD MMM YYYY, HH:mm")}
               {isAdmin && owner.data ? ` · Owner: ${owner.data.fullName}` : ""}
+              {lead.status === "LOST" ? " · Unassigned – available for reassignment" : ""}
             </Typography>
           </Box>
           <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
@@ -442,21 +441,37 @@ export function LeadDetailPage() {
               label={LEAD_STATUS_LABELS[lead.status]}
               color={LEAD_STATUS_COLORS[lead.status]}
             />
-            <TextField
-              select
-              label="Change status"
-              size="small"
-              sx={{ minWidth: 180 }}
-              value={lead.status}
-              disabled={statusMutation.isPending}
-              onChange={(e) => handleStatusSelect(e.target.value as LeadStatus)}
-            >
-              {LEAD_STATUSES.map((s) => (
-                <MenuItem key={s} value={s}>
-                  {LEAD_STATUS_LABELS[s]}
-                </MenuItem>
-              ))}
-            </TextField>
+            {isHotInterestLevel ? (
+              <TextField
+                select
+                label="Change status"
+                size="small"
+                sx={{ minWidth: 180 }}
+                value={lead.status}
+                disabled={statusMutation.isPending}
+                onChange={(e) => handleStatusSelect(e.target.value as LeadStatus)}
+              >
+                {LEAD_STATUSES.map((s) => (
+                  <MenuItem key={s} value={s}>
+                    {LEAD_STATUS_LABELS[s]}
+                  </MenuItem>
+                ))}
+              </TextField>
+            ) : (
+              lead.status !== "LOST" && (
+                <Button
+                  size="small"
+                  color="error"
+                  disabled={statusMutation.isPending}
+                  onClick={() => {
+                    setStatusError(null);
+                    setLostDialogOpen(true);
+                  }}
+                >
+                  Mark as Lost
+                </Button>
+              )
+            )}
             {isAdmin && (
               <Button
                 startIcon={<SwapHorizIcon />}
@@ -516,12 +531,48 @@ export function LeadDetailPage() {
             />
           </Grid>
           <Grid size={{ xs: 12, sm: 6 }}>
+            <Controller
+              control={form.control}
+              name="businessTypeId"
+              render={({ field }) => (
+                <CreatableMasterAutocomplete
+                  label="Business type"
+                  options={businessTypeOptions}
+                  idValue={field.value}
+                  otherValue={form.watch("businessTypeOther")}
+                  onChange={({ id, other }) => {
+                    field.onChange(id);
+                    form.setValue("businessTypeOther", other);
+                  }}
+                />
+              )}
+            />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <TextField
               label="Contact person"
               fullWidth
               {...form.register("contactPerson")}
               error={!!form.formState.errors.contactPerson}
               helperText={form.formState.errors.contactPerson?.message}
+            />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <Controller
+              control={form.control}
+              name="designationId"
+              render={({ field }) => (
+                <CreatableMasterAutocomplete
+                  label="Designation"
+                  options={designationOptions}
+                  idValue={field.value}
+                  otherValue={form.watch("designationOther")}
+                  onChange={({ id, other }) => {
+                    field.onChange(id);
+                    form.setValue("designationOther", other);
+                  }}
+                />
+              )}
             />
           </Grid>
           <Grid size={{ xs: 12, sm: 6 }}>
@@ -578,124 +629,6 @@ export function LeadDetailPage() {
           <Grid size={{ xs: 12, sm: 4 }}>
             <Controller
               control={form.control}
-              name="leadSourceId"
-              render={({ field }) => (
-                <CreatableMasterAutocomplete
-                  label="Lead source"
-                  options={leadSourceOptions}
-                  idValue={field.value}
-                  otherValue={form.watch("leadSourceOther")}
-                  onChange={({ id, other }) => {
-                    field.onChange(id);
-                    form.setValue("leadSourceOther", other);
-                  }}
-                />
-              )}
-            />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 4 }}>
-            <Controller
-              control={form.control}
-              name="industryId"
-              render={({ field }) => (
-                <CreatableMasterAutocomplete
-                  label="Industry"
-                  options={industryOptions}
-                  idValue={field.value}
-                  otherValue={form.watch("industryOther")}
-                  onChange={({ id, other }) => {
-                    field.onChange(id);
-                    form.setValue("industryOther", other);
-                  }}
-                />
-              )}
-            />
-          </Grid>
-        </Grid>
-
-        <Accordion
-          expanded={optionalExpanded}
-          onChange={(_, expanded) => setOptionalExpanded(expanded)}
-          disableGutters
-          variant="outlined"
-          sx={{ mt: 2, "&:before": { display: "none" } }}
-        >
-          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Typography variant="subtitle2">Additional details (optional)</Typography>
-          </AccordionSummary>
-          <AccordionDetails>
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 12, sm: 4 }}>
-                <TextField label="Email" fullWidth {...form.register("email")} />
-              </Grid>
-
-              <Grid size={{ xs: 12, sm: 4 }}>
-                <Controller
-                  control={form.control}
-                  name="businessTypeId"
-              render={({ field }) => (
-                <CreatableMasterAutocomplete
-                  label="Business type"
-                  options={businessTypeOptions}
-                  idValue={field.value}
-                  otherValue={form.watch("businessTypeOther")}
-                  onChange={({ id, other }) => {
-                    field.onChange(id);
-                    form.setValue("businessTypeOther", other);
-                  }}
-                />
-              )}
-            />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 4 }}>
-            <TextField
-              label="Turnover"
-              type="number"
-              fullWidth
-              {...form.register("turnover")}
-            />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 4 }}>
-            <Controller
-              control={form.control}
-              name="designationId"
-              render={({ field }) => (
-                <CreatableMasterAutocomplete
-                  label="Designation"
-                  options={designationOptions}
-                  idValue={field.value}
-                  otherValue={form.watch("designationOther")}
-                  onChange={({ id, other }) => {
-                    field.onChange(id);
-                    form.setValue("designationOther", other);
-                  }}
-                />
-              )}
-            />
-          </Grid>
-
-          <Grid size={12}>
-            <TextField
-              label="Address"
-              fullWidth
-              multiline
-              minRows={2}
-              {...form.register("address")}
-            />
-          </Grid>
-          <Grid size={12}>
-            <TextField
-              label="Requirements"
-              fullWidth
-              multiline
-              minRows={2}
-              {...form.register("requirements")}
-            />
-          </Grid>
-
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <Controller
-              control={form.control}
               name="productIds"
               render={({ field }) => (
                 <Autocomplete
@@ -717,13 +650,6 @@ export function LeadDetailPage() {
             />
           </Grid>
           <Grid size={{ xs: 12, sm: 6 }}>
-            <TextField
-              label="Other products (not in the list above)"
-              fullWidth
-              {...form.register("productsOther")}
-            />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6 }}>
             <Controller
               control={form.control}
               name="interestLevelId"
@@ -741,22 +667,23 @@ export function LeadDetailPage() {
               )}
             />
           </Grid>
-
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <TextField
-              label="Current product / solution"
-              fullWidth
-              {...form.register("currentProductSolution")}
+          <Grid size={{ xs: 12, sm: 6 }} sx={{ display: "flex", alignItems: "center" }}>
+            <Controller
+              control={form.control}
+              name="decisionMakerIdentified"
+              render={({ field }) => (
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={field.value}
+                      onChange={(e) => field.onChange(e.target.checked)}
+                    />
+                  }
+                  label="Decision maker identified"
+                />
+              )}
             />
           </Grid>
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <TextField
-              label="Budget range"
-              fullWidth
-              {...form.register("budgetRange")}
-            />
-          </Grid>
-
           <Grid size={{ xs: 12, sm: 6 }}>
             <Controller
               control={form.control}
@@ -785,34 +712,6 @@ export function LeadDetailPage() {
               )}
             />
           </Grid>
-
-          <Grid size={12}>
-            <Controller
-              control={form.control}
-              name="decisionMakerIdentified"
-              render={({ field }) => (
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={field.value}
-                      onChange={(e) => field.onChange(e.target.checked)}
-                    />
-                  }
-                  label="Decision maker identified"
-                />
-              )}
-            />
-          </Grid>
-
-          <Grid size={12}>
-            <TextField
-              label="Objections"
-              fullWidth
-              multiline
-              minRows={2}
-              {...form.register("objections")}
-            />
-          </Grid>
           <Grid size={12}>
             <TextField
               label="Remarks"
@@ -822,7 +721,97 @@ export function LeadDetailPage() {
               {...form.register("remarks")}
             />
           </Grid>
+        </Grid>
+
+        <Accordion
+          expanded={optionalExpanded}
+          onChange={(_, expanded) => setOptionalExpanded(expanded)}
+          disableGutters
+          variant="outlined"
+          sx={{ mt: 2, "&:before": { display: "none" } }}
+        >
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography variant="subtitle2">Additional details (optional)</Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <Controller
+                  control={form.control}
+                  name="industryId"
+                  render={({ field }) => (
+                    <CreatableMasterAutocomplete
+                      label="Industry"
+                      options={industryOptions}
+                      idValue={field.value}
+                      otherValue={form.watch("industryOther")}
+                      onChange={({ id, other }) => {
+                        field.onChange(id);
+                        form.setValue("industryOther", other);
+                      }}
+                    />
+                  )}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <Controller
+                  control={form.control}
+                  name="leadSourceId"
+                  render={({ field }) => (
+                    <CreatableMasterAutocomplete
+                      label="Lead source"
+                      options={leadSourceOptions}
+                      idValue={field.value}
+                      otherValue={form.watch("leadSourceOther")}
+                      onChange={({ id, other }) => {
+                        field.onChange(id);
+                        form.setValue("leadSourceOther", other);
+                      }}
+                    />
+                  )}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <TextField
+                  label="Turnover"
+                  type="number"
+                  fullWidth
+                  {...form.register("turnover")}
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField label="Email" fullWidth {...form.register("email")} />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  label="Current product / solution"
+                  fullWidth
+                  {...form.register("currentProductSolution")}
+                />
+              </Grid>
+
+              <Grid size={12}>
+                <TextField
+                  label="Address"
+                  fullWidth
+                  multiline
+                  minRows={2}
+                  {...form.register("address")}
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  label="Budget range"
+                  fullWidth
+                  {...form.register("budgetRange")}
+                />
+              </Grid>
             </Grid>
+
+            <Divider sx={{ my: 3 }} />
+            <LeadAttachmentsSection leadId={lead.id} />
           </AccordionDetails>
         </Accordion>
 

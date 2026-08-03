@@ -10,6 +10,7 @@ export type LeadStatus =
   | "NEW"
   | "CONTACTED"
   | "NEGOTIATION"
+  | "INTERESTED"
   | "LOST"
   | "CLOSED_WON"
   | "LAPSED";
@@ -18,6 +19,7 @@ export const LEAD_STATUSES: LeadStatus[] = [
   "NEW",
   "CONTACTED",
   "NEGOTIATION",
+  "INTERESTED",
   "LOST",
   "CLOSED_WON",
   "LAPSED",

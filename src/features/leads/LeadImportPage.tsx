@@ -28,6 +28,7 @@ import {
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
+import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import ListAltIcon from "@mui/icons-material/ListAlt";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
@@ -476,6 +477,17 @@ export function LeadImportPage() {
             {previewLoading ? "Reading file..." : "Choose file"}
             <input type="file" hidden accept=".xlsx,.csv" onChange={handleFileChange} />
           </Button>
+          <Box sx={{ mt: 2 }}>
+            <Button
+              size="small"
+              startIcon={<FileDownloadIcon />}
+              component="a"
+              href="/lead-import-template.xlsx"
+              download
+            >
+              Download Excel template
+            </Button>
+          </Box>
         </Paper>
       )}
 

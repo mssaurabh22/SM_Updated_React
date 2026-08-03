@@ -8,6 +8,7 @@ import {
   Chip,
   CircularProgress,
   Paper,
+  Stack,
   Table,
   TableBody,
   TableCell,
@@ -19,9 +20,9 @@ import {
 import EventNoteIcon from "@mui/icons-material/EventNote";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import { useMasterData } from "../../api/masterDataApi";
-import { getLead, useLead } from "../../api/leadsApi";
+import { getLead, useLead, useLeads } from "../../api/leadsApi";
 import type { Visit } from "../../api/visitsApi";
-import { useTodaysFollowUps } from "../../api/visitsApi";
+import { useTodaysFollowUps, useVisits } from "../../api/visitsApi";
 import { useEmployee } from "../../api/employeesApi";
 import { useAuth } from "../../auth/AuthContext";
 import { parseApiError } from "../../api/errorHelpers";
@@ -68,6 +69,133 @@ function FollowUpRow({ visit, purposeMap, onNavigate }: FollowUpRowProps) {
         {visit.purposeId ? (purposeMap.get(visit.purposeId) ?? "—") : "—"}
       </TableCell>
     </TableRow>
+  );
+}
+
+/**
+ * "Lapsed Calls" widget: the caller's own (or team, if TEAM_VISIBILITY-entitled) Leads whose
+ * next_followup_date passed and got auto-flagged LAPSED by the nightly LapsedLeadJob -
+ * GET /leads?status=LAPSED already scopes to the caller server-side (LeadService#list), so
+ * this is a plain useLeads call, no new endpoint needed.
+ */
+function LapsedCallsSection() {
+  const navigate = useNavigate();
+  const { data, isLoading, isError, error } = useLeads({ status: "LAPSED", size: 50 });
+  const leads = data?.content ?? [];
+
+  return (
+    <Box sx={{ mt: 4 }}>
+      <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", mb: 1.5 }}>
+        <Typography variant="h6">Lapsed Calls</Typography>
+        {leads.length > 0 && <Chip label={leads.length} size="small" color="warning" />}
+      </Stack>
+
+      {isLoading && (
+        <Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
+          <CircularProgress size={24} />
+        </Box>
+      )}
+      {isError && <Alert severity="error">{parseApiError(error).message}</Alert>}
+      {!isLoading && leads.length === 0 && (
+        <Paper variant="outlined" sx={{ p: 3 }}>
+          <Typography color="text.secondary">No lapsed leads right now.</Typography>
+        </Paper>
+      )}
+      {leads.length > 0 && (
+        <TableContainer component={Paper} variant="outlined">
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Company</TableCell>
+                <TableCell>Contact Person</TableCell>
+                <TableCell>Next Follow-up (passed)</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {leads.map((lead) => (
+                <TableRow
+                  key={lead.id}
+                  hover
+                  sx={{ cursor: "pointer" }}
+                  onClick={() => navigate(`/app/leads/${lead.id}`)}
+                >
+                  <TableCell>{lead.companyName}</TableCell>
+                  <TableCell>{lead.contactPerson}</TableCell>
+                  <TableCell>{lead.nextFollowupDate ?? "—"}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+    </Box>
+  );
+}
+
+/**
+ * "Upcoming Follow-ups" widget: the caller's own PLANNED visits over the next 7 days (tomorrow
+ * through +7, so it never duplicates the "today" table above) - same GET /visits?status=PLANNED
+ * &dateFrom=&dateTo= query the admin Dashboard's UpcomingVisitsWidget already uses, confirmed
+ * to already scope to the caller server-side for an EMPLOYEE (VisitService#list), so no new
+ * backend endpoint is needed here either.
+ */
+function UpcomingFollowUpsSection() {
+  const navigate = useNavigate();
+  const { data: purposes } = useMasterData("VISIT_PURPOSE");
+  const purposeMap = new Map((purposes ?? []).map((p) => [p.id, p.label]));
+  const dateFrom = dayjs().add(1, "day").format("YYYY-MM-DD");
+  const dateTo = dayjs().add(7, "day").format("YYYY-MM-DD");
+  const { data, isLoading, isError, error } = useVisits({
+    status: "PLANNED",
+    dateFrom,
+    dateTo,
+    size: 50,
+  });
+  const visits = data?.content ?? [];
+
+  return (
+    <Box sx={{ mt: 4 }}>
+      <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", mb: 1.5 }}>
+        <Typography variant="h6">Upcoming Follow-ups</Typography>
+        {visits.length > 0 && <Chip label={visits.length} size="small" color="info" />}
+      </Stack>
+
+      {isLoading && (
+        <Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
+          <CircularProgress size={24} />
+        </Box>
+      )}
+      {isError && <Alert severity="error">{parseApiError(error).message}</Alert>}
+      {!isLoading && visits.length === 0 && (
+        <Paper variant="outlined" sx={{ p: 3 }}>
+          <Typography color="text.secondary">No follow-ups planned in the next 7 days.</Typography>
+        </Paper>
+      )}
+      {visits.length > 0 && (
+        <TableContainer component={Paper} variant="outlined">
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Company</TableCell>
+                <TableCell>Visit Date</TableCell>
+                <TableCell>Type</TableCell>
+                <TableCell>Purpose</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {visits.map((visit) => (
+                <FollowUpRow
+                  key={visit.id}
+                  visit={visit}
+                  purposeMap={purposeMap}
+                  onNavigate={(leadId) => navigate(`/app/leads/${leadId}`)}
+                />
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+    </Box>
   );
 }
 
@@ -198,6 +326,9 @@ export function TodaysFollowUpsPage() {
           </Table>
         </TableContainer>
       )}
+
+      <LapsedCallsSection />
+      <UpcomingFollowUpsSection />
     </Box>
   );
 }
