@@ -309,7 +309,7 @@ export function Layout() {
             <ListItemIcon>
               <ReceiptLongIcon />
             </ListItemIcon>
-            <ListItemText primary="Invoices" />
+            <ListItemText primary="Quotations" />
           </ListItemButton>
         </>
       )}

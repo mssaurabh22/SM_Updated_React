@@ -302,11 +302,11 @@ function BillingProfileSection() {
 
   return (
     <SectionCard
-      title="Invoice billing profile"
+      title="Quotation billing profile"
       description={
         isAdmin
-          ? `Shown as the seller header on every generated invoice PDF, alongside "${profileQuery.data?.businessName ?? ""}".`
-          : "Set by your administrator - shown as the seller header on generated invoice PDFs."
+          ? `Shown as the seller header on every generated quotation PDF, alongside "${profileQuery.data?.businessName ?? ""}".`
+          : "Set by your administrator - shown as the seller header on generated quotation PDFs."
       }
     >
       <Stack spacing={2}>

@@ -4,6 +4,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import dayjs, { type Dayjs } from "dayjs";
 import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Alert,
   Autocomplete,
   Button,
@@ -21,6 +24,7 @@ import {
   useMediaQuery,
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { TimePicker } from "@mui/x-date-pickers/TimePicker";
 import type { Lead } from "../../api/leadsApi";
@@ -68,9 +72,6 @@ const schema = z.object({
   interestLevelId: z.string().nullable(),
   interestLevelOther: z.string().nullable(),
   productIds: z.array(z.string()),
-  productsOther: z.string(),
-  requirements: z.string(),
-  objections: z.string(),
   remarks: z.string(),
   decisionMakerIdentified: z.boolean(),
   nextVisitDate: z.custom<Dayjs | null>(),
@@ -98,9 +99,6 @@ const blankValues: FormValues = {
   interestLevelId: null,
   interestLevelOther: null,
   productIds: [],
-  productsOther: "",
-  requirements: "",
-  objections: "",
   remarks: "",
   decisionMakerIdentified: false,
   nextVisitDate: null,
@@ -134,6 +132,7 @@ export function VisitFormDialog({
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [formError, setFormError] = useState<string | null>(null);
   const [sameDayMatches, setSameDayMatches] = useState<VisitSameDayMatch[]>([]);
+  const [optionalExpanded, setOptionalExpanded] = useState(false);
 
   const createMutation = useCreateVisit();
   const updateMutation = useUpdateVisit();
@@ -173,6 +172,7 @@ export function VisitFormDialog({
     if (!open) return;
     setFormError(null);
     setSameDayMatches([]);
+    setOptionalExpanded(false);
 
     if (visit) {
       form.reset({
@@ -197,9 +197,6 @@ export function VisitFormDialog({
         interestLevelId: visit.interestLevelId,
         interestLevelOther: visit.interestLevelOther,
         productIds: visit.productIds ?? [],
-        productsOther: visit.productsOther ?? "",
-        requirements: visit.requirements ?? "",
-        objections: visit.objections ?? "",
         remarks: visit.remarks ?? "",
         decisionMakerIdentified: visit.decisionMakerIdentified ?? false,
         nextVisitDate: visit.nextVisitDate ? dayjs(visit.nextVisitDate) : null,
@@ -266,9 +263,6 @@ export function VisitFormDialog({
       interestLevelId: values.interestLevelId ?? undefined,
       interestLevelOther: values.interestLevelOther ?? undefined,
       productIds: values.productIds,
-      productsOther: values.productsOther.trim() || undefined,
-      requirements: values.requirements.trim() || undefined,
-      objections: values.objections.trim() || undefined,
       remarks: values.remarks.trim() || undefined,
       decisionMakerIdentified: values.decisionMakerIdentified,
       nextVisitDate: values.nextVisitDate
@@ -433,7 +427,7 @@ export function VisitFormDialog({
             </Grid>
 
             <Typography variant="subtitle2" sx={{ mt: 1 }}>
-              Contact details
+              Required details
             </Typography>
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, sm: 6 }}>
@@ -468,9 +462,6 @@ export function VisitFormDialog({
                   slotProps={{ htmlInput: { inputMode: "numeric" } }}
                   {...form.register("contactNo")}
                 />
-              </Grid>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField label="Email" fullWidth {...form.register("email")} />
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
                 <Controller
@@ -514,46 +505,6 @@ export function VisitFormDialog({
                 />
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField
-                  label="Budget range"
-                  fullWidth
-                  {...form.register("budgetRange")}
-                />
-              </Grid>
-              <Grid size={12}>
-                <TextField
-                  label="Address"
-                  fullWidth
-                  multiline
-                  minRows={2}
-                  {...form.register("address")}
-                />
-              </Grid>
-              <Grid size={12}>
-                <Controller
-                  control={form.control}
-                  name="interestLevelId"
-                  render={({ field }) => (
-                    <CreatableMasterAutocomplete
-                      label="Interest level"
-                      options={interestLevelOptions}
-                      idValue={field.value}
-                      otherValue={form.watch("interestLevelOther")}
-                      onChange={({ id, other }) => {
-                        field.onChange(id);
-                        form.setValue("interestLevelOther", other);
-                      }}
-                    />
-                  )}
-                />
-              </Grid>
-            </Grid>
-
-            <Typography variant="subtitle2" sx={{ mt: 1 }}>
-              Visit details
-            </Typography>
-            <Grid container spacing={2}>
-              <Grid size={12}>
                 <Controller
                   control={form.control}
                   name="productIds"
@@ -573,37 +524,21 @@ export function VisitFormDialog({
                 />
               </Grid>
               <Grid size={12}>
-                <TextField
-                  label="Other products (not in the list above)"
-                  fullWidth
-                  {...form.register("productsOther")}
-                />
-              </Grid>
-              <Grid size={12}>
-                <TextField
-                  label="Requirements"
-                  fullWidth
-                  multiline
-                  minRows={2}
-                  {...form.register("requirements")}
-                />
-              </Grid>
-              <Grid size={12}>
-                <TextField
-                  label="Objections"
-                  fullWidth
-                  multiline
-                  minRows={2}
-                  {...form.register("objections")}
-                />
-              </Grid>
-              <Grid size={12}>
-                <TextField
-                  label="Remarks"
-                  fullWidth
-                  multiline
-                  minRows={2}
-                  {...form.register("remarks")}
+                <Controller
+                  control={form.control}
+                  name="interestLevelId"
+                  render={({ field }) => (
+                    <CreatableMasterAutocomplete
+                      label="Interest level"
+                      options={interestLevelOptions}
+                      idValue={field.value}
+                      otherValue={form.watch("interestLevelOther")}
+                      onChange={({ id, other }) => {
+                        field.onChange(id);
+                        form.setValue("interestLevelOther", other);
+                      }}
+                    />
+                  )}
                 />
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
@@ -638,7 +573,51 @@ export function VisitFormDialog({
                   )}
                 />
               </Grid>
+              <Grid size={12}>
+                <TextField
+                  label="Remarks"
+                  fullWidth
+                  multiline
+                  minRows={2}
+                  {...form.register("remarks")}
+                />
+              </Grid>
             </Grid>
+
+            <Accordion
+              expanded={optionalExpanded}
+              onChange={(_, expanded) => setOptionalExpanded(expanded)}
+              disableGutters
+              variant="outlined"
+              sx={{ mt: 2, "&:before": { display: "none" } }}
+            >
+              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Typography variant="subtitle2">Additional details (optional)</Typography>
+              </AccordionSummary>
+              <AccordionDetails>
+                <Grid container spacing={2}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <TextField label="Email" fullWidth {...form.register("email")} />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <TextField
+                      label="Budget range"
+                      fullWidth
+                      {...form.register("budgetRange")}
+                    />
+                  </Grid>
+                  <Grid size={12}>
+                    <TextField
+                      label="Address"
+                      fullWidth
+                      multiline
+                      minRows={2}
+                      {...form.register("address")}
+                    />
+                  </Grid>
+                </Grid>
+              </AccordionDetails>
+            </Accordion>
           </Stack>
         </DialogContent>
         <DialogActions>

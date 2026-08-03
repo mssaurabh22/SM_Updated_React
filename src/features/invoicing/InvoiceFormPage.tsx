@@ -190,7 +190,7 @@ export function InvoiceFormPage() {
       return;
     }
     if (!invoiceDate) {
-      setFormError("Invoice date is required");
+      setFormError("Quotation date is required");
       return;
     }
     for (const row of lineItems) {
@@ -244,7 +244,7 @@ export function InvoiceFormPage() {
   return (
     <Box>
       <Typography variant="h5" sx={{ mb: 2 }}>
-        New Invoice
+        New Quotation
       </Typography>
 
       {formError && (
@@ -267,7 +267,7 @@ export function InvoiceFormPage() {
               <TextField
                 {...params}
                 label="Link an existing Lead (optional)"
-                helperText="Prefills the fields below - still editable, and the invoice keeps its own copy from this point on"
+                helperText="Prefills the fields below - still editable, and the quotation keeps its own copy from this point on"
               />
             )}
           />
@@ -316,7 +316,7 @@ export function InvoiceFormPage() {
               onChange={(e) => setCustomerGstin(e.target.value)}
             />
             <DatePicker
-              label="Invoice date"
+              label="Quotation date"
               value={invoiceDate}
               onChange={setInvoiceDate}
               slotProps={{ textField: { fullWidth: true } }}
@@ -450,7 +450,7 @@ export function InvoiceFormPage() {
           Cancel
         </Button>
         <Button variant="contained" onClick={handleSubmit} disabled={createMutation.isPending}>
-          {createMutation.isPending ? "Creating..." : "Create Invoice"}
+          {createMutation.isPending ? "Creating..." : "Create Quotation"}
         </Button>
       </Stack>
     </Box>

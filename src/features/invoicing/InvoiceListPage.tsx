@@ -71,8 +71,8 @@ export function InvoiceListPage() {
     setExportLoading(true);
     try {
       const all = await getInvoices({ status: statusFilter || undefined, size: 1000 });
-      exportToCsv<Invoice>(`invoices-${dayjs().format("YYYY-MM-DD")}.csv`, all.content, [
-        { label: "Invoice #", value: (i) => i.invoiceNumber },
+      exportToCsv<Invoice>(`quotations-${dayjs().format("YYYY-MM-DD")}.csv`, all.content, [
+        { label: "Quotation #", value: (i) => i.invoiceNumber },
         { label: "Customer", value: (i) => i.customerName },
         { label: "Date", value: (i) => i.invoiceDate },
         { label: "Grand Total", value: (i) => i.grandTotal },
@@ -88,20 +88,20 @@ export function InvoiceListPage() {
   return (
     <Box>
       <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mb: 2 }}>
-        <Typography variant="h5">Invoices</Typography>
+        <Typography variant="h5">Quotations</Typography>
         <Button
           startIcon={<AddIcon />}
           variant="contained"
           onClick={() => navigate("/app/invoices/new")}
         >
-          New Invoice
+          New Quotation
         </Button>
       </Stack>
 
       <TableToolbar
         searchValue={search}
         onSearchChange={setSearch}
-        searchPlaceholder="Search invoice #, customer..."
+        searchPlaceholder="Search quotation #, customer..."
         onExport={handleExport}
         exportDisabled={!data || data.content.length === 0}
         exportLoading={exportLoading}
@@ -146,7 +146,7 @@ export function InvoiceListPage() {
           {data.content.length === 0 && (
             <Paper variant="outlined" sx={{ py: 4 }}>
               <Typography color="text.secondary" align="center">
-                No invoices yet.
+                No quotations yet.
               </Typography>
             </Paper>
           )}
@@ -154,7 +154,7 @@ export function InvoiceListPage() {
           {data.content.length > 0 && visibleInvoices.length === 0 && (
             <Paper variant="outlined" sx={{ py: 4 }}>
               <Typography color="text.secondary" align="center">
-                No invoices match your search.
+                No quotations match your search.
               </Typography>
             </Paper>
           )}
@@ -188,7 +188,7 @@ export function InvoiceListPage() {
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell>Invoice #</TableCell>
+                    <TableCell>Quotation #</TableCell>
                     <TableCell>Customer</TableCell>
                     <TableCell>Date</TableCell>
                     <TableCell align="right">Grand Total</TableCell>

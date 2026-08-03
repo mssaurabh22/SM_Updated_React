@@ -55,7 +55,7 @@ export function InvoiceDetailPage() {
   if (isError || !invoice) {
     return (
       <Alert severity="error" sx={{ mt: 2 }}>
-        {isError ? parseApiError(error).message : "Invoice not found."}
+        {isError ? parseApiError(error).message : "Quotation not found."}
       </Alert>
     );
   }
@@ -96,7 +96,7 @@ export function InvoiceDetailPage() {
   return (
     <Box>
       <Button startIcon={<ArrowBackIcon />} onClick={() => navigate("/app/invoices")} sx={{ mb: 2 }}>
-        Back to Invoices
+        Back to Quotations
       </Button>
 
       <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mb: 2 }}>
