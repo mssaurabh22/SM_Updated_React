@@ -96,7 +96,7 @@ export function InvoiceDetailPage() {
   return (
     <Box>
       <Button startIcon={<ArrowBackIcon />} onClick={() => navigate("/app/invoices")} sx={{ mb: 2 }}>
-        Back to Quotations
+        Back to Invoices
       </Button>
 
       <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mb: 2 }}>
@@ -149,41 +149,63 @@ export function InvoiceDetailPage() {
         </Alert>
       )}
 
-      <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
-        <Typography variant="subtitle1" sx={{ mb: 1 }}>
-          Customer
-        </Typography>
-        <Typography>{invoice.customerName}</Typography>
-        {invoice.customerContactPerson && <Typography>{invoice.customerContactPerson}</Typography>}
-        {invoice.customerPhone && <Typography color="text.secondary">{invoice.customerPhone}</Typography>}
-        {invoice.customerEmail && <Typography color="text.secondary">{invoice.customerEmail}</Typography>}
-        {invoice.customerAddress && <Typography color="text.secondary">{invoice.customerAddress}</Typography>}
-        {invoice.customerGstin && (
-          <Typography color="text.secondary">GSTIN: {invoice.customerGstin}</Typography>
-        )}
-      </Paper>
+      <Stack direction={{ xs: "column", md: "row" }} spacing={2} sx={{ mb: 2 }}>
+        <Paper variant="outlined" sx={{ p: 2, flex: 1 }}>
+          <Typography variant="subtitle1" sx={{ mb: 1 }}>
+            Bill To
+          </Typography>
+          <Typography>{invoice.customerName}</Typography>
+          {invoice.customerContactPerson && <Typography>{invoice.customerContactPerson}</Typography>}
+          {invoice.customerPhone && <Typography color="text.secondary">{invoice.customerPhone}</Typography>}
+          {invoice.customerEmail && <Typography color="text.secondary">{invoice.customerEmail}</Typography>}
+          {invoice.customerAddress && <Typography color="text.secondary">{invoice.customerAddress}</Typography>}
+          {invoice.customerGstin && (
+            <Typography color="text.secondary">GSTIN: {invoice.customerGstin}</Typography>
+          )}
+        </Paper>
+        <Paper variant="outlined" sx={{ p: 2, flex: 1 }}>
+          <Typography variant="subtitle1" sx={{ mb: 1 }}>
+            Ship To
+          </Typography>
+          <Typography>{invoice.shipToName ?? invoice.customerName}</Typography>
+          {(invoice.shipToAddress ?? invoice.customerAddress) && (
+            <Typography color="text.secondary">{invoice.shipToAddress ?? invoice.customerAddress}</Typography>
+          )}
+          {invoice.shipToGstin && <Typography color="text.secondary">GSTIN: {invoice.shipToGstin}</Typography>}
+          <Divider sx={{ my: 1 }} />
+          {invoice.dueDate && (
+            <Typography color="text.secondary">Due: {dayjs(invoice.dueDate).format("DD MMM YYYY")}</Typography>
+          )}
+          {invoice.placeOfSupply && (
+            <Typography color="text.secondary">Place of Supply: {invoice.placeOfSupply}</Typography>
+          )}
+          <Typography color="text.secondary">Reverse Charge: {invoice.reverseCharge ? "Yes" : "No"}</Typography>
+        </Paper>
+      </Stack>
 
       <Paper variant="outlined" sx={{ p: 2, mb: 2, overflowX: "auto" }}>
         <Table size="small">
           <TableHead>
             <TableRow>
               <TableCell>Description</TableCell>
+              <TableCell>HSN/SAC</TableCell>
               <TableCell align="right">Qty</TableCell>
               <TableCell align="right">Unit Price</TableCell>
-              <TableCell align="right">Tax %</TableCell>
-              <TableCell align="right">Subtotal</TableCell>
-              <TableCell align="right">Tax</TableCell>
+              <TableCell align="right">Discount %</TableCell>
+              <TableCell align="right">CGST</TableCell>
+              <TableCell align="right">SGST</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {invoice.lineItems.map((line) => (
               <TableRow key={line.id}>
                 <TableCell>{line.description}</TableCell>
+                <TableCell>{line.hsnSac ?? "-"}</TableCell>
                 <TableCell align="right">{line.quantity}</TableCell>
                 <TableCell align="right">{line.unitPrice}</TableCell>
-                <TableCell align="right">{line.taxRatePercent}</TableCell>
-                <TableCell align="right">{line.lineSubtotal}</TableCell>
-                <TableCell align="right">{line.lineTaxAmount}</TableCell>
+                <TableCell align="right">{line.discountPercent}</TableCell>
+                <TableCell align="right">{line.lineCgstAmount}</TableCell>
+                <TableCell align="right">{line.lineSgstAmount}</TableCell>
               </TableRow>
             ))}
           </TableBody>

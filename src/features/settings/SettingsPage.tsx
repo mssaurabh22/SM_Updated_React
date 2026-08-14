@@ -270,6 +270,11 @@ function BillingProfileSection() {
   const [billingPhone, setBillingPhone] = useState("");
   const [invoiceHeaderText, setInvoiceHeaderText] = useState("");
   const [invoiceFooterText, setInvoiceFooterText] = useState("");
+  const [bankName, setBankName] = useState("");
+  const [bankAccountNumber, setBankAccountNumber] = useState("");
+  const [bankIfsc, setBankIfsc] = useState("");
+  const [bankBranch, setBankBranch] = useState("");
+  const [upiId, setUpiId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const loadedRef = useRef(false);
@@ -282,6 +287,11 @@ function BillingProfileSection() {
       setBillingPhone(profileQuery.data.billingPhone ?? "");
       setInvoiceHeaderText(profileQuery.data.invoiceHeaderText ?? "");
       setInvoiceFooterText(profileQuery.data.invoiceFooterText ?? "");
+      setBankName(profileQuery.data.bankName ?? "");
+      setBankAccountNumber(profileQuery.data.bankAccountNumber ?? "");
+      setBankIfsc(profileQuery.data.bankIfsc ?? "");
+      setBankBranch(profileQuery.data.bankBranch ?? "");
+      setUpiId(profileQuery.data.upiId ?? "");
     }
   }, [profileQuery.data]);
 
@@ -295,6 +305,11 @@ function BillingProfileSection() {
         billingPhone: billingPhone || undefined,
         invoiceHeaderText: invoiceHeaderText || undefined,
         invoiceFooterText: invoiceFooterText || undefined,
+        bankName: bankName || undefined,
+        bankAccountNumber: bankAccountNumber || undefined,
+        bankIfsc: bankIfsc || undefined,
+        bankBranch: bankBranch || undefined,
+        upiId: upiId || undefined,
       });
       setSaved(true);
     } catch (err) {
@@ -304,11 +319,11 @@ function BillingProfileSection() {
 
   return (
     <SectionCard
-      title="Quotation billing profile"
+      title="Invoice billing profile"
       description={
         isAdmin
-          ? `Shown as the seller header on every generated quotation PDF, alongside "${profileQuery.data?.businessName ?? ""}".`
-          : "Set by your administrator - shown as the seller header on generated quotation PDFs."
+          ? `Shown as the seller header and payment details on every generated Quotation/Invoice PDF, alongside "${profileQuery.data?.businessName ?? ""}".`
+          : "Set by your administrator - shown as the seller header on generated Quotation/Invoice PDFs."
       }
     >
       <Stack spacing={2}>
@@ -363,6 +378,46 @@ function BillingProfileSection() {
               disabled={!isAdmin}
               value={invoiceFooterText}
               onChange={(e) => setInvoiceFooterText(e.target.value)}
+            />
+            <Typography variant="subtitle2">Payment details (shown on the Invoice PDF)</Typography>
+            <Stack direction="row" spacing={2}>
+              <TextField
+                label="Bank name"
+                fullWidth
+                disabled={!isAdmin}
+                value={bankName}
+                onChange={(e) => setBankName(e.target.value)}
+              />
+              <TextField
+                label="Account number"
+                fullWidth
+                disabled={!isAdmin}
+                value={bankAccountNumber}
+                onChange={(e) => setBankAccountNumber(e.target.value)}
+              />
+            </Stack>
+            <Stack direction="row" spacing={2}>
+              <TextField
+                label="IFSC code"
+                fullWidth
+                disabled={!isAdmin}
+                value={bankIfsc}
+                onChange={(e) => setBankIfsc(e.target.value)}
+              />
+              <TextField
+                label="Branch"
+                fullWidth
+                disabled={!isAdmin}
+                value={bankBranch}
+                onChange={(e) => setBankBranch(e.target.value)}
+              />
+            </Stack>
+            <TextField
+              label="UPI ID"
+              fullWidth
+              disabled={!isAdmin}
+              value={upiId}
+              onChange={(e) => setUpiId(e.target.value)}
             />
             {isAdmin && (
               <Box>

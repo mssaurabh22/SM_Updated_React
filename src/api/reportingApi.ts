@@ -114,6 +114,145 @@ export async function getRevenue(params: GetRevenueParams = {}): Promise<Revenue
   return response.data;
 }
 
+export interface QuotationInvoiceSummary {
+  totalQuotations: number;
+  approvedQuotations: number;
+  convertedToInvoice: number;
+  pendingInvoicesCount: number;
+  pendingInvoicesAmount: number;
+  pendingPaymentsCount: number;
+  pendingPaymentsAmount: number;
+  monthlyBilling: number;
+  outstanding: number;
+}
+
+export interface GetQuotationInvoiceSummaryParams {
+  dateFrom?: string;
+  dateTo?: string;
+}
+
+export async function getQuotationInvoiceSummary(
+  params: GetQuotationInvoiceSummaryParams = {},
+): Promise<QuotationInvoiceSummary> {
+  const response = await axiosInstance.get<QuotationInvoiceSummary>(
+    "/reports/quotation-invoice-summary",
+    { params },
+  );
+  return response.data;
+}
+
+export function useQuotationInvoiceSummary(params: GetQuotationInvoiceSummaryParams = {}) {
+  return useQuery({
+    queryKey: ["reports", "quotation-invoice-summary", params],
+    queryFn: () => getQuotationInvoiceSummary(params),
+  });
+}
+
+export interface LabelCount {
+  label: string;
+  count: number;
+}
+
+export interface CompanySummaryRow {
+  company: string;
+  total: number;
+  hot: number;
+  won: number;
+  lost: number;
+}
+
+export interface CitySummaryRow {
+  city: string;
+  total: number;
+  hot: number;
+  won: number;
+}
+
+export interface ProductPerformanceRow {
+  product: string;
+  total: number;
+  won: number;
+  conversionRatePercent: number;
+}
+
+export interface InterestLevelPerformanceRow {
+  interestLevel: string;
+  total: number;
+  won: number;
+  conversionRatePercent: number;
+}
+
+export interface EmployeePerformanceRow {
+  employeeName: string;
+  total: number;
+  hot: number;
+  followUpPending: number;
+  won: number;
+  conversionRatePercent: number;
+}
+
+export interface ExpectedClosures {
+  thisWeek: number;
+  thisMonth: number;
+  nextMonth: number;
+}
+
+export interface FollowUpSummary {
+  todayCount: number;
+  tomorrowCount: number;
+  next7DaysCount: number;
+  overdueCount: number;
+  unassignedCount: number;
+}
+
+export interface LeadDashboard {
+  totalLeads: number;
+  hotLeads: number;
+  warmLeads: number;
+  coldLeads: number;
+  notSetInterestCount: number;
+  todayFollowUpCount: number;
+  overdueFollowUpCount: number;
+  closedWonCount: number;
+  closedLostCount: number;
+  conversionRatePercent: number;
+  expectedClosures: ExpectedClosures;
+  byBusinessType: LabelCount[];
+  byProduct: LabelCount[];
+  companyWiseSummary: CompanySummaryRow[];
+  cityWiseSummary: CitySummaryRow[];
+  productPerformance: ProductPerformanceRow[];
+  interestLevelPerformance: InterestLevelPerformanceRow[];
+  employeePerformance: EmployeePerformanceRow[];
+  followUpSummary: FollowUpSummary;
+}
+
+export interface GetLeadDashboardParams {
+  status?: LeadStatus;
+  ownerId?: string;
+  interestLevelId?: string;
+  stateId?: string;
+  cityId?: string;
+  productId?: string;
+  businessTypeId?: string;
+  nextFollowupDate?: string;
+  expectedCloseDate?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}
+
+export async function getLeadDashboard(params: GetLeadDashboardParams = {}): Promise<LeadDashboard> {
+  const response = await axiosInstance.get<LeadDashboard>("/reports/lead-dashboard", { params });
+  return response.data;
+}
+
+export function useLeadDashboard(params: GetLeadDashboardParams = {}) {
+  return useQuery({
+    queryKey: ["reports", "lead-dashboard", params],
+    queryFn: () => getLeadDashboard(params),
+  });
+}
+
 export function useLeadsBySource(enabled = true) {
   return useQuery({
     queryKey: ["reports", "leads-by-source"],

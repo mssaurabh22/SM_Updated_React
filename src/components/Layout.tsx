@@ -44,6 +44,8 @@ import CalendarViewMonthIcon from "@mui/icons-material/CalendarViewMonth";
 import SpaceDashboardIcon from "@mui/icons-material/SpaceDashboard";
 import Inventory2Icon from "@mui/icons-material/Inventory2";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
+import ContactsIcon from "@mui/icons-material/Contacts";
+import RequestQuoteIcon from "@mui/icons-material/RequestQuote";
 import dayjs from "dayjs";
 import { useAuth } from "../auth/AuthContext";
 import { useEntitlements } from "../entitlement/EntitlementContext";
@@ -293,6 +295,16 @@ export function Layout() {
           <NavSectionHeader label="Inventory" />
 
           <ListItemButton
+            selected={location.pathname.startsWith("/app/customers")}
+            onClick={() => handleNavigate("/app/customers")}
+          >
+            <ListItemIcon>
+              <ContactsIcon />
+            </ListItemIcon>
+            <ListItemText primary="Customers" />
+          </ListItemButton>
+
+          <ListItemButton
             selected={location.pathname.startsWith("/app/inventory/products")}
             onClick={() => handleNavigate("/app/inventory/products")}
           >
@@ -303,13 +315,23 @@ export function Layout() {
           </ListItemButton>
 
           <ListItemButton
+            selected={location.pathname.startsWith("/app/quotations")}
+            onClick={() => handleNavigate("/app/quotations")}
+          >
+            <ListItemIcon>
+              <RequestQuoteIcon />
+            </ListItemIcon>
+            <ListItemText primary="Quotations" />
+          </ListItemButton>
+
+          <ListItemButton
             selected={location.pathname.startsWith("/app/invoices")}
             onClick={() => handleNavigate("/app/invoices")}
           >
             <ListItemIcon>
               <ReceiptLongIcon />
             </ListItemIcon>
-            <ListItemText primary="Quotations" />
+            <ListItemText primary="Invoices" />
           </ListItemButton>
         </>
       )}

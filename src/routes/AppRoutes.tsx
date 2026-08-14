@@ -31,9 +31,13 @@ import { TeamLeaveCalendarPage } from "../features/leave/TeamLeaveCalendarPage";
 import { HrDashboardPage } from "../features/leave/HrDashboardPage";
 import { PlatformConsolePage } from "../features/platform/PlatformConsolePage";
 import { ProductListPage } from "../features/inventory/ProductListPage";
-import { InvoiceListPage } from "../features/invoicing/InvoiceListPage";
+import { InvoiceDashboardPage } from "../features/invoicing/InvoiceDashboardPage";
 import { InvoiceFormPage } from "../features/invoicing/InvoiceFormPage";
 import { InvoiceDetailPage } from "../features/invoicing/InvoiceDetailPage";
+import { CustomerListPage } from "../features/customers/CustomerListPage";
+import { QuotationListPage } from "../features/quotations/QuotationListPage";
+import { QuotationFormPage } from "../features/quotations/QuotationFormPage";
+import { QuotationDetailPage } from "../features/quotations/QuotationDetailPage";
 
 export function AppRoutes() {
   return (
@@ -94,8 +98,13 @@ export function AppRoutes() {
           </Route>
 
           <Route element={<RequireEntitlementRoute feature="INVENTORY_MANAGEMENT" />}>
+            <Route path="customers" element={<CustomerListPage />} />
             <Route path="inventory/products" element={<ProductListPage />} />
-            <Route path="invoices" element={<InvoiceListPage />} />
+            <Route path="quotations" element={<QuotationListPage />} />
+            <Route path="quotations/new" element={<QuotationFormPage />} />
+            <Route path="quotations/:id" element={<QuotationDetailPage />} />
+            <Route path="quotations/:id/edit" element={<QuotationFormPage />} />
+            <Route path="invoices" element={<InvoiceDashboardPage />} />
             <Route path="invoices/new" element={<InvoiceFormPage />} />
             <Route path="invoices/:id" element={<InvoiceDetailPage />} />
           </Route>

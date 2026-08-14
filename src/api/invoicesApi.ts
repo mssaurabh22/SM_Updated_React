@@ -11,12 +11,17 @@ export type InvoiceStatus = "UNPAID" | "PAID";
 export interface InvoiceLineItem {
   id: string;
   productId: string | null;
+  hsnSac: string | null;
   description: string;
   quantity: number;
   unitPrice: number;
+  discountPercent: number;
   taxRatePercent: number;
   lineSubtotal: number;
+  lineDiscountAmount: number;
   lineTaxAmount: number;
+  lineCgstAmount: number;
+  lineSgstAmount: number;
   sortOrder: number;
 }
 
@@ -33,7 +38,14 @@ export interface Invoice {
   customerEmail: string | null;
   customerAddress: string | null;
   customerGstin: string | null;
+  shipToName: string | null;
+  shipToAddress: string | null;
+  shipToGstin: string | null;
   invoiceDate: string;
+  dueDate: string | null;
+  placeOfSupply: string | null;
+  reverseCharge: boolean;
+  quotationId: string | null;
   subtotal: number;
   taxTotal: number;
   grandTotal: number;
@@ -55,9 +67,11 @@ export interface GetInvoicesParams {
  * InvoiceService's line-item validation. */
 export interface InvoiceLineItemPayload {
   productId?: string;
+  hsnSac?: string;
   description?: string;
   quantity: number;
   unitPrice?: number;
+  discountPercent?: number;
   taxRatePercent?: number;
 }
 
@@ -69,7 +83,13 @@ export interface CreateInvoicePayload {
   customerEmail?: string;
   customerAddress?: string;
   customerGstin?: string;
+  shipToName?: string;
+  shipToAddress?: string;
+  shipToGstin?: string;
   invoiceDate: string;
+  dueDate?: string;
+  placeOfSupply?: string;
+  reverseCharge?: boolean;
   lineItems: InvoiceLineItemPayload[];
   notes?: string;
 }

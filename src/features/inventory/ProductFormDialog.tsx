@@ -27,6 +27,7 @@ const createSchema = z.object({
   unitPrice: z.number().min(0, "Must be zero or more"),
   taxRatePercent: z.number().min(0, "Must be zero or more"),
   unitOfMeasure: z.string().max(50).optional(),
+  hsnSacCode: z.string().max(20).optional(),
   stockQuantity: z.number().int().min(0, "Must be zero or more"),
   lowStockThreshold: z.number().int().min(0).optional(),
 });
@@ -40,6 +41,7 @@ const editSchema = z.object({
   unitPrice: z.number().min(0, "Must be zero or more"),
   taxRatePercent: z.number().min(0, "Must be zero or more"),
   unitOfMeasure: z.string().max(50).optional(),
+  hsnSacCode: z.string().max(20).optional(),
   lowStockThreshold: z.number().int().min(0).optional(),
   active: z.boolean(),
 });
@@ -71,6 +73,7 @@ export function ProductFormDialog({ open, onClose, product }: ProductFormDialogP
       unitPrice: 0,
       taxRatePercent: 0,
       unitOfMeasure: "",
+      hsnSacCode: "",
       stockQuantity: 0,
       lowStockThreshold: undefined,
     },
@@ -85,6 +88,7 @@ export function ProductFormDialog({ open, onClose, product }: ProductFormDialogP
       unitPrice: 0,
       taxRatePercent: 0,
       unitOfMeasure: "",
+      hsnSacCode: "",
       lowStockThreshold: undefined,
       active: true,
     },
@@ -101,6 +105,7 @@ export function ProductFormDialog({ open, onClose, product }: ProductFormDialogP
         unitPrice: product.unitPrice,
         taxRatePercent: product.taxRatePercent,
         unitOfMeasure: product.unitOfMeasure ?? "",
+        hsnSacCode: product.hsnSacCode ?? "",
         lowStockThreshold: product.lowStockThreshold ?? undefined,
         active: product.active,
       });
@@ -112,6 +117,7 @@ export function ProductFormDialog({ open, onClose, product }: ProductFormDialogP
         unitPrice: 0,
         taxRatePercent: 0,
         unitOfMeasure: "",
+        hsnSacCode: "",
         stockQuantity: 0,
         lowStockThreshold: undefined,
       });
@@ -212,15 +218,16 @@ export function ProductFormDialog({ open, onClose, product }: ProductFormDialogP
                   fullWidth
                   {...editForm.register("unitOfMeasure")}
                 />
-                <TextField
-                  label="Low stock threshold (optional)"
-                  type="number"
-                  fullWidth
-                  {...editForm.register("lowStockThreshold", {
-                    setValueAs: (v: string) => (v === "" ? undefined : Number(v)),
-                  })}
-                />
+                <TextField label="HSN/SAC code (optional)" fullWidth {...editForm.register("hsnSacCode")} />
               </Stack>
+              <TextField
+                label="Low stock threshold (optional)"
+                type="number"
+                fullWidth
+                {...editForm.register("lowStockThreshold", {
+                  setValueAs: (v: string) => (v === "" ? undefined : Number(v)),
+                })}
+              />
               <FormControlLabel
                 control={
                   <Switch
@@ -290,15 +297,16 @@ export function ProductFormDialog({ open, onClose, product }: ProductFormDialogP
                   fullWidth
                   {...createForm.register("unitOfMeasure")}
                 />
-                <TextField
-                  label="Low stock threshold (optional)"
-                  type="number"
-                  fullWidth
-                  {...createForm.register("lowStockThreshold", {
-                    setValueAs: (v: string) => (v === "" ? undefined : Number(v)),
-                  })}
-                />
+                <TextField label="HSN/SAC code (optional)" fullWidth {...createForm.register("hsnSacCode")} />
               </Stack>
+              <TextField
+                label="Low stock threshold (optional)"
+                type="number"
+                fullWidth
+                {...createForm.register("lowStockThreshold", {
+                  setValueAs: (v: string) => (v === "" ? undefined : Number(v)),
+                })}
+              />
               <TextField
                 label="Initial stock quantity"
                 type="number"

@@ -7,7 +7,9 @@ import {
   Autocomplete,
   Box,
   Button,
+  Checkbox,
   Divider,
+  FormControlLabel,
   IconButton,
   MenuItem,
   Paper,
@@ -32,9 +34,11 @@ interface LineItemRow {
   key: string;
   mode: LineItemMode;
   productId: string | null;
+  hsnSac: string;
   description: string;
   quantity: string;
   unitPrice: string;
+  discountPercent: string;
   taxRatePercent: string;
 }
 
@@ -43,9 +47,11 @@ function emptyRow(): LineItemRow {
     key: crypto.randomUUID(),
     mode: "catalog",
     productId: null,
+    hsnSac: "",
     description: "",
     quantity: "1",
     unitPrice: "0",
+    discountPercent: "0",
     taxRatePercent: "0",
   };
 }
@@ -53,10 +59,12 @@ function emptyRow(): LineItemRow {
 function computeLineTotals(row: LineItemRow) {
   const quantity = Number(row.quantity) || 0;
   const unitPrice = Number(row.unitPrice) || 0;
+  const discountPercent = Number(row.discountPercent) || 0;
   const taxRatePercent = Number(row.taxRatePercent) || 0;
   const lineSubtotal = quantity * unitPrice;
-  const lineTax = lineSubtotal * (taxRatePercent / 100);
-  return { lineSubtotal, lineTax, lineTotal: lineSubtotal + lineTax };
+  const lineDiscount = lineSubtotal * (discountPercent / 100);
+  const lineTax = (lineSubtotal - lineDiscount) * (taxRatePercent / 100);
+  return { lineSubtotal, lineDiscount, lineTax, lineTotal: lineSubtotal - lineDiscount + lineTax };
 }
 
 /**
@@ -82,7 +90,14 @@ export function InvoiceFormPage() {
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerAddress, setCustomerAddress] = useState("");
   const [customerGstin, setCustomerGstin] = useState("");
+  const [shipToSameAsBilling, setShipToSameAsBilling] = useState(true);
+  const [shipToName, setShipToName] = useState("");
+  const [shipToAddress, setShipToAddress] = useState("");
+  const [shipToGstin, setShipToGstin] = useState("");
   const [invoiceDate, setInvoiceDate] = useState<Dayjs | null>(dayjs());
+  const [dueDate, setDueDate] = useState<Dayjs | null>(dayjs().add(15, "day"));
+  const [placeOfSupply, setPlaceOfSupply] = useState("");
+  const [reverseCharge, setReverseCharge] = useState(false);
   const [notes, setNotes] = useState("");
   const [lineItems, setLineItems] = useState<LineItemRow[]>([emptyRow()]);
   const [formError, setFormError] = useState<string | null>(null);
@@ -106,7 +121,7 @@ export function InvoiceFormPage() {
 
   const handleProductSelect = (key: string, product: Product | null) => {
     if (!product) {
-      updateRow(key, { productId: null, description: "", unitPrice: "0", taxRatePercent: "0" });
+      updateRow(key, { productId: null, description: "", unitPrice: "0", taxRatePercent: "0", hsnSac: "" });
       return;
     }
     updateRow(key, {
@@ -114,6 +129,7 @@ export function InvoiceFormPage() {
       description: product.name,
       unitPrice: String(product.unitPrice),
       taxRatePercent: String(product.taxRatePercent),
+      hsnSac: product.hsnSacCode ?? "",
     });
   };
 
@@ -124,6 +140,7 @@ export function InvoiceFormPage() {
       description: "",
       unitPrice: "0",
       taxRatePercent: "0",
+      hsnSac: "",
     });
   };
 
@@ -153,9 +170,11 @@ export function InvoiceFormPage() {
           key: crypto.randomUUID(),
           mode: "catalog",
           productId: product.id,
+          hsnSac: product.hsnSacCode ?? "",
           description: product.name,
           quantity: "1",
           unitPrice: String(product.unitPrice),
+          discountPercent: "0",
           taxRatePercent: String(product.taxRatePercent),
         };
         const emptyIndex = rows.findIndex((row) => row.mode === "catalog" && !row.productId);
@@ -173,13 +192,15 @@ export function InvoiceFormPage() {
 
   const totals = useMemo(() => {
     let subtotal = 0;
+    let discountTotal = 0;
     let taxTotal = 0;
     for (const row of lineItems) {
-      const { lineSubtotal, lineTax } = computeLineTotals(row);
+      const { lineSubtotal, lineDiscount, lineTax } = computeLineTotals(row);
       subtotal += lineSubtotal;
+      discountTotal += lineDiscount;
       taxTotal += lineTax;
     }
-    return { subtotal, taxTotal, grandTotal: subtotal + taxTotal };
+    return { subtotal, discountTotal, taxTotal, grandTotal: subtotal - discountTotal + taxTotal };
   }, [lineItems]);
 
   const handleSubmit = async () => {
@@ -190,7 +211,7 @@ export function InvoiceFormPage() {
       return;
     }
     if (!invoiceDate) {
-      setFormError("Quotation date is required");
+      setFormError("Invoice date is required");
       return;
     }
     for (const row of lineItems) {
@@ -209,13 +230,16 @@ export function InvoiceFormPage() {
     }
 
     const payloadLineItems: InvoiceLineItemPayload[] = lineItems.map((row) => {
+      const discountPercent = Number(row.discountPercent) || 0;
       if (row.mode === "catalog") {
-        return { productId: row.productId as string, quantity: Number(row.quantity) };
+        return { productId: row.productId as string, quantity: Number(row.quantity), discountPercent };
       }
       return {
+        hsnSac: row.hsnSac.trim() || undefined,
         description: row.description,
         quantity: Number(row.quantity),
         unitPrice: Number(row.unitPrice) || 0,
+        discountPercent,
         taxRatePercent: Number(row.taxRatePercent) || 0,
       };
     });
@@ -228,7 +252,13 @@ export function InvoiceFormPage() {
       customerEmail: customerEmail.trim() || undefined,
       customerAddress: customerAddress.trim() || undefined,
       customerGstin: customerGstin.trim() || undefined,
+      shipToName: shipToSameAsBilling ? undefined : shipToName.trim() || undefined,
+      shipToAddress: shipToSameAsBilling ? undefined : shipToAddress.trim() || undefined,
+      shipToGstin: shipToSameAsBilling ? undefined : shipToGstin.trim() || undefined,
       invoiceDate: invoiceDate.format("YYYY-MM-DD"),
+      dueDate: dueDate ? dueDate.format("YYYY-MM-DD") : undefined,
+      placeOfSupply: placeOfSupply.trim() || undefined,
+      reverseCharge,
       lineItems: payloadLineItems,
       notes: notes.trim() || undefined,
     };
@@ -244,7 +274,7 @@ export function InvoiceFormPage() {
   return (
     <Box>
       <Typography variant="h5" sx={{ mb: 2 }}>
-        New Quotation
+        New Invoice
       </Typography>
 
       {formError && (
@@ -267,7 +297,7 @@ export function InvoiceFormPage() {
               <TextField
                 {...params}
                 label="Link an existing Lead (optional)"
-                helperText="Prefills the fields below - still editable, and the quotation keeps its own copy from this point on"
+                helperText="Prefills the fields below - still editable, and the invoice keeps its own copy from this point on"
               />
             )}
           />
@@ -316,13 +346,60 @@ export function InvoiceFormPage() {
               onChange={(e) => setCustomerGstin(e.target.value)}
             />
             <DatePicker
-              label="Quotation date"
+              label="Invoice date"
               value={invoiceDate}
               onChange={setInvoiceDate}
               slotProps={{ textField: { fullWidth: true } }}
             />
           </Stack>
+          <Stack direction="row" spacing={2}>
+            <DatePicker
+              label="Due date"
+              value={dueDate}
+              onChange={setDueDate}
+              slotProps={{ textField: { fullWidth: true } }}
+            />
+            <TextField
+              label="Place of supply"
+              fullWidth
+              value={placeOfSupply}
+              onChange={(e) => setPlaceOfSupply(e.target.value)}
+            />
+          </Stack>
+          <FormControlLabel
+            control={<Checkbox checked={reverseCharge} onChange={(e) => setReverseCharge(e.target.checked)} />}
+            label="Reverse charge applicable"
+          />
         </Stack>
+      </Paper>
+
+      <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+        <Typography variant="subtitle1" sx={{ mb: 1.5 }}>
+          Ship To
+        </Typography>
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={shipToSameAsBilling}
+              onChange={(e) => setShipToSameAsBilling(e.target.checked)}
+            />
+          }
+          label="Same as billing address"
+        />
+        {!shipToSameAsBilling && (
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField label="Ship-to name" fullWidth value={shipToName} onChange={(e) => setShipToName(e.target.value)} />
+            <TextField
+              label="Ship-to address"
+              fullWidth
+              multiline
+              minRows={2}
+              value={shipToAddress}
+              onChange={(e) => setShipToAddress(e.target.value)}
+            />
+            <TextField label="Ship-to GSTIN" fullWidth value={shipToGstin} onChange={(e) => setShipToGstin(e.target.value)} />
+          </Stack>
+        )}
       </Paper>
 
       <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
@@ -393,6 +470,14 @@ export function InvoiceFormPage() {
                     onChange={(e) => updateRow(row.key, { quantity: e.target.value })}
                   />
                   <TextField
+                    label="HSN/SAC"
+                    size="small"
+                    sx={{ width: 100, flexShrink: 0 }}
+                    value={row.hsnSac}
+                    disabled={row.mode === "catalog"}
+                    onChange={(e) => updateRow(row.key, { hsnSac: e.target.value })}
+                  />
+                  <TextField
                     label="Unit price"
                     size="small"
                     type="number"
@@ -400,6 +485,14 @@ export function InvoiceFormPage() {
                     value={row.unitPrice}
                     disabled={row.mode === "catalog"}
                     onChange={(e) => updateRow(row.key, { unitPrice: e.target.value })}
+                  />
+                  <TextField
+                    label="Discount %"
+                    size="small"
+                    type="number"
+                    sx={{ width: 100, flexShrink: 0 }}
+                    value={row.discountPercent}
+                    onChange={(e) => updateRow(row.key, { discountPercent: e.target.value })}
                   />
                   <TextField
                     label="Tax %"
@@ -429,6 +522,7 @@ export function InvoiceFormPage() {
         <Divider sx={{ my: 2 }} />
         <Stack spacing={0.5} sx={{ alignItems: "flex-end" }}>
           <Typography variant="body2">Subtotal: {totals.subtotal.toFixed(2)}</Typography>
+          <Typography variant="body2">Discount: {totals.discountTotal.toFixed(2)}</Typography>
           <Typography variant="body2">Tax: {totals.taxTotal.toFixed(2)}</Typography>
           <Typography variant="subtitle1">Grand Total: {totals.grandTotal.toFixed(2)}</Typography>
         </Stack>
@@ -450,7 +544,7 @@ export function InvoiceFormPage() {
           Cancel
         </Button>
         <Button variant="contained" onClick={handleSubmit} disabled={createMutation.isPending}>
-          {createMutation.isPending ? "Creating..." : "Create Quotation"}
+          {createMutation.isPending ? "Creating..." : "Create Invoice"}
         </Button>
       </Stack>
     </Box>

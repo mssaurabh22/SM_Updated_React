@@ -9,6 +9,11 @@ export interface BillingProfile {
   hasLogo: boolean;
   invoiceHeaderText: string | null;
   invoiceFooterText: string | null;
+  bankName: string | null;
+  bankAccountNumber: string | null;
+  bankIfsc: string | null;
+  bankBranch: string | null;
+  upiId: string | null;
 }
 
 export interface UpdateBillingProfilePayload {
@@ -17,6 +22,11 @@ export interface UpdateBillingProfilePayload {
   billingPhone?: string;
   invoiceHeaderText?: string;
   invoiceFooterText?: string;
+  bankName?: string;
+  bankAccountNumber?: string;
+  bankIfsc?: string;
+  bankBranch?: string;
+  upiId?: string;
 }
 
 export const BILLING_PROFILE_QUERY_KEY = ["billingProfile"];

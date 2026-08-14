@@ -25,58 +25,53 @@ import {
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import AddIcon from "@mui/icons-material/Add";
-import type { Invoice, InvoiceStatus } from "../../api/invoicesApi";
-import { getInvoices, useInvoices } from "../../api/invoicesApi";
+import type { Quotation, QuotationStatus } from "../../api/quotationsApi";
+import { getQuotations, useQuotations } from "../../api/quotationsApi";
 import { parseApiError } from "../../api/errorHelpers";
 import { exportToCsv } from "../../utils/exportToCsv";
 import { TableToolbar } from "../../components/TableToolbar";
 
 const PAGE_SIZE = 20;
 
-const STATUS_COLORS: Record<InvoiceStatus, "success" | "warning"> = {
-  PAID: "success",
-  UNPAID: "warning",
+const STATUS_COLORS: Record<QuotationStatus, "default" | "info" | "success" | "error" | "secondary"> = {
+  DRAFT: "default",
+  SENT: "info",
+  APPROVED: "success",
+  REJECTED: "error",
+  CONVERTED: "secondary",
 };
 
-export function InvoiceListPage() {
+export function QuotationListPage() {
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   const [page, setPage] = useState(0);
-  const [statusFilter, setStatusFilter] = useState<InvoiceStatus | "">("");
+  const [statusFilter, setStatusFilter] = useState<QuotationStatus | "">("");
   const [search, setSearch] = useState("");
   const [exportLoading, setExportLoading] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
 
-  const { data, isLoading, isError, error } = useInvoices({
+  const { data, isLoading, isError, error } = useQuotations({
     status: statusFilter || undefined,
+    search: search || undefined,
     page,
     size: PAGE_SIZE,
   });
 
-  const visibleInvoices = useMemo(() => {
-    const content = data?.content ?? [];
-    const term = search.trim().toLowerCase();
-    if (!term) return content;
-    return content.filter(
-      (inv) =>
-        inv.invoiceNumber.toLowerCase().includes(term) ||
-        inv.customerName.toLowerCase().includes(term),
-    );
-  }, [data, search]);
+  const rows = useMemo(() => data?.content ?? [], [data]);
 
   const handleExport = async () => {
     setExportError(null);
     setExportLoading(true);
     try {
-      const all = await getInvoices({ status: statusFilter || undefined, size: 1000 });
-      exportToCsv<Invoice>(`quotations-${dayjs().format("YYYY-MM-DD")}.csv`, all.content, [
-        { label: "Quotation #", value: (i) => i.invoiceNumber },
-        { label: "Customer", value: (i) => i.customerName },
-        { label: "Date", value: (i) => i.invoiceDate },
-        { label: "Grand Total", value: (i) => i.grandTotal },
-        { label: "Status", value: (i) => i.status },
+      const all = await getQuotations({ status: statusFilter || undefined, size: 1000 });
+      exportToCsv<Quotation>(`quotations-${dayjs().format("YYYY-MM-DD")}.csv`, all.content, [
+        { label: "Quotation #", value: (q) => q.quotationNumber },
+        { label: "Customer", value: (q) => q.customerName },
+        { label: "Date", value: (q) => q.quotationDate },
+        { label: "Grand Total", value: (q) => q.grandTotal },
+        { label: "Status", value: (q) => q.status },
       ]);
     } catch (err) {
       setExportError(parseApiError(err).message);
@@ -89,18 +84,17 @@ export function InvoiceListPage() {
     <Box>
       <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mb: 2 }}>
         <Typography variant="h5">Quotations</Typography>
-        <Button
-          startIcon={<AddIcon />}
-          variant="contained"
-          onClick={() => navigate("/app/invoices/new")}
-        >
+        <Button startIcon={<AddIcon />} variant="contained" onClick={() => navigate("/app/quotations/new")}>
           New Quotation
         </Button>
       </Stack>
 
       <TableToolbar
         searchValue={search}
-        onSearchChange={setSearch}
+        onSearchChange={(v) => {
+          setSearch(v);
+          setPage(0);
+        }}
         searchPlaceholder="Search quotation #, customer..."
         onExport={handleExport}
         exportDisabled={!data || data.content.length === 0}
@@ -114,12 +108,15 @@ export function InvoiceListPage() {
           value={statusFilter}
           onChange={(e) => {
             setPage(0);
-            setStatusFilter(e.target.value as InvoiceStatus | "");
+            setStatusFilter(e.target.value as QuotationStatus | "");
           }}
         >
           <MenuItem value="">All statuses</MenuItem>
-          <MenuItem value="UNPAID">Unpaid</MenuItem>
-          <MenuItem value="PAID">Paid</MenuItem>
+          <MenuItem value="DRAFT">Draft</MenuItem>
+          <MenuItem value="SENT">Sent</MenuItem>
+          <MenuItem value="APPROVED">Approved</MenuItem>
+          <MenuItem value="REJECTED">Rejected</MenuItem>
+          <MenuItem value="CONVERTED">Converted</MenuItem>
         </TextField>
       </TableToolbar>
 
@@ -143,7 +140,7 @@ export function InvoiceListPage() {
 
       {data && (
         <>
-          {data.content.length === 0 && (
+          {rows.length === 0 && (
             <Paper variant="outlined" sx={{ py: 4 }}>
               <Typography color="text.secondary" align="center">
                 No quotations yet.
@@ -151,31 +148,23 @@ export function InvoiceListPage() {
             </Paper>
           )}
 
-          {data.content.length > 0 && visibleInvoices.length === 0 && (
-            <Paper variant="outlined" sx={{ py: 4 }}>
-              <Typography color="text.secondary" align="center">
-                No quotations match your search.
-              </Typography>
-            </Paper>
-          )}
-
-          {isMobile && visibleInvoices.length > 0 && (
+          {isMobile && rows.length > 0 && (
             <Stack spacing={1.5}>
-              {visibleInvoices.map((invoice) => (
+              {rows.map((quotation) => (
                 <Card
-                  key={invoice.id}
+                  key={quotation.id}
                   variant="outlined"
                   sx={{ cursor: "pointer" }}
-                  onClick={() => navigate(`/app/invoices/${invoice.id}`)}
+                  onClick={() => navigate(`/app/quotations/${quotation.id}`)}
                 >
                   <CardContent>
                     <Stack direction="row" sx={{ justifyContent: "space-between", mb: 1 }}>
-                      <Typography variant="subtitle1">{invoice.invoiceNumber}</Typography>
-                      <Chip label={invoice.status} color={STATUS_COLORS[invoice.status]} size="small" />
+                      <Typography variant="subtitle1">{quotation.quotationNumber}</Typography>
+                      <Chip label={quotation.status} color={STATUS_COLORS[quotation.status]} size="small" />
                     </Stack>
-                    <Typography variant="body2">{invoice.customerName}</Typography>
+                    <Typography variant="body2">{quotation.customerName}</Typography>
                     <Typography variant="body2" color="text.secondary">
-                      {dayjs(invoice.invoiceDate).format("DD MMM YYYY")} - {invoice.grandTotal}
+                      {dayjs(quotation.quotationDate).format("DD MMM YYYY")} - {quotation.grandTotal}
                     </Typography>
                   </CardContent>
                 </Card>
@@ -183,7 +172,7 @@ export function InvoiceListPage() {
             </Stack>
           )}
 
-          {!isMobile && visibleInvoices.length > 0 && (
+          {!isMobile && rows.length > 0 && (
             <TableContainer component={Paper} variant="outlined">
               <Table size="small">
                 <TableHead>
@@ -196,19 +185,19 @@ export function InvoiceListPage() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {visibleInvoices.map((invoice) => (
+                  {rows.map((quotation) => (
                     <TableRow
-                      key={invoice.id}
+                      key={quotation.id}
                       hover
                       sx={{ cursor: "pointer" }}
-                      onClick={() => navigate(`/app/invoices/${invoice.id}`)}
+                      onClick={() => navigate(`/app/quotations/${quotation.id}`)}
                     >
-                      <TableCell>{invoice.invoiceNumber}</TableCell>
-                      <TableCell>{invoice.customerName}</TableCell>
-                      <TableCell>{dayjs(invoice.invoiceDate).format("DD MMM YYYY")}</TableCell>
-                      <TableCell align="right">{invoice.grandTotal}</TableCell>
+                      <TableCell>{quotation.quotationNumber}</TableCell>
+                      <TableCell>{quotation.customerName}</TableCell>
+                      <TableCell>{dayjs(quotation.quotationDate).format("DD MMM YYYY")}</TableCell>
+                      <TableCell align="right">{quotation.grandTotal}</TableCell>
                       <TableCell>
-                        <Chip label={invoice.status} color={STATUS_COLORS[invoice.status]} size="small" />
+                        <Chip label={quotation.status} color={STATUS_COLORS[quotation.status]} size="small" />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -219,11 +208,7 @@ export function InvoiceListPage() {
 
           {data.totalPages > 1 && (
             <Stack direction="row" sx={{ justifyContent: "center", mt: 2 }}>
-              <Pagination
-                count={data.totalPages}
-                page={page + 1}
-                onChange={(_, next) => setPage(next - 1)}
-              />
+              <Pagination count={data.totalPages} page={page + 1} onChange={(_, next) => setPage(next - 1)} />
             </Stack>
           )}
         </>

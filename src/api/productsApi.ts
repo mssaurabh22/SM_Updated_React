@@ -15,6 +15,7 @@ export interface Product {
   unitPrice: number;
   taxRatePercent: number;
   unitOfMeasure: string | null;
+  hsnSacCode: string | null;
   stockQuantity: number;
   lowStockThreshold: number | null;
   active: boolean;
@@ -35,6 +36,7 @@ export interface CreateProductPayload {
   unitPrice: number;
   taxRatePercent?: number;
   unitOfMeasure?: string;
+  hsnSacCode?: string;
   stockQuantity: number;
   lowStockThreshold?: number;
 }
@@ -48,6 +50,7 @@ export interface UpdateProductPayload {
   unitPrice: number;
   taxRatePercent?: number;
   unitOfMeasure?: string;
+  hsnSacCode?: string;
   lowStockThreshold?: number;
   active: boolean;
 }
